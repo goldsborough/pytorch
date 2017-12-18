@@ -571,6 +571,7 @@ if WITH_CUDA:
         "torch/csrc/cuda/Stream.cpp",
         "torch/csrc/cuda/AutoGPU.cpp",
         "torch/csrc/cuda/utils.cpp",
+        "torch/csrc/cuda/nccl.cpp",
         "torch/csrc/cuda/expand_utils.cpp",
         "torch/csrc/cuda/serialization.cpp",
     ]
@@ -584,7 +585,7 @@ if WITH_NCCL:
         main_link_args += [NCCL_LIB]
     extra_compile_args += ['-DWITH_NCCL']
     main_sources += [
-        "torch/csrc/cuda/nccl.cpp",
+        "torch/csrc/cuda/python_nccl.cpp",
     ]
 if WITH_CUDNN:
     main_libraries += ['cudnn']

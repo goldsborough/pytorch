@@ -13,9 +13,9 @@ class Function;
 
 /// Represents a particular input of a function.
 struct Edge {
-  explicit Edge(
-      const std::shared_ptr<Function>& function_ = nullptr,
-      uint32_t input_nr_ = 0)
+  Edge() noexcept : function(nullptr), input_nr(0) {}
+
+  Edge(const std::shared_ptr<Function>& function_, uint32_t input_nr_) noexcept
       : function(function_), input_nr(input_nr_) {}
 
   /// Convenience method to test if an edge is valid.

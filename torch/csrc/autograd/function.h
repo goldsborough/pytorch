@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <initializer_list>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -35,6 +36,7 @@ using tensor_list = std::vector<at::Tensor>;
 using variable_list = std::vector<Variable>;
 using function_list = std::vector<Edge>;
 using saved_variable_list = std::vector<SavedVariable>;
+using IndexRange = std::pair<size_t, size_t>;
 
 namespace detail {
 struct MakeNextFunctionList : IterArgs<MakeNextFunctionList> {

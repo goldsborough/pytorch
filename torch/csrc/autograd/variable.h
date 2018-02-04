@@ -44,7 +44,7 @@ struct Variable : public at::Tensor {
     if (const auto& gradient = grad_fn()) {
       return Edge(gradient, output_nr());
     } else {
-      return Edge(grad_accumulator());
+      return Edge(grad_accumulator(), 0);
     }
   }
 

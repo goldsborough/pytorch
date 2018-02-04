@@ -237,7 +237,7 @@ bool Eval::replaceSubgraph(const variable_list& inputs, const variable_list& _ou
     // This detaches the subgraph from the full backward graph.
     for (auto& begin : subgraph.boundary.begins) {
       auto& fn = begin.function->next_functions[begin.input_nr];
-      fn = Edge(ends_to_outputs.at(fn));
+      fn = Edge(ends_to_outputs.at(fn), 0);
     }
 
     // Replace subgraph with this node.
@@ -294,7 +294,7 @@ variable_list Eval::apply(const variable_list& inputs) {
     auto exec_data = filterRoots(inputs);
     auto output_edges = fmap(
         placeholders,
-        [](const std::shared_ptr<EvalOutput>& o) { return Edge(o); });
+        [](const std::shared_ptr<EvalOutput>& o) { return Edge(o, 0); });
     outputs = engine.execute(exec_data.first, exec_data.second, true, true, output_edges);
   }
 

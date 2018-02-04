@@ -41,7 +41,7 @@ struct Variable : public at::Tensor {
     // variable. These nodes get suppressed in some situations,
     // see "suppress grad accumulation" below. Note that only variables which
     // have `requires_grad = True` can have grad accumulators.
-    if (const auto gradient = grad_fn()) {
+    if (const auto& gradient = grad_fn()) {
       return Edge(gradient, output_nr());
     } else {
       return Edge(grad_accumulator());

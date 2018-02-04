@@ -108,7 +108,7 @@ struct Function : std::enable_shared_from_this<Function> {
 
   bool should_compute_output(size_t index) const {
     TORCH_ASSERTM(index < next_functions.size(), "Index out of range");
-    return next_functions[index].function != nullptr;
+    return next_functions[index].is_valid();
   }
 
   bool should_compute_any_outputs() const {

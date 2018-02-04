@@ -151,7 +151,7 @@ bool Eval::trySimpleEval(const variable_list& inputs, const variable_list& outpu
     // attempt the optimization in this case.  To fix it properly,
     // we'd need to filter grad_next_fns and outputs of apply in Eval::apply.
     // The check below tests if null edge pruning occurred.
-    if (!inputs[i].defined() || !grad_next_fns[i].function) return false;
+    if (!inputs[i].defined() || !grad_next_fns[i].is_valid()) return false;
     if (grad_next_fns[i] != inputs[i].gradient_edge()) return false;
   }
 

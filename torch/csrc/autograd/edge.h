@@ -18,6 +18,11 @@ struct Edge {
       uint32_t input_nr_ = 0)
       : function(function_), input_nr(input_nr_) {}
 
+  /// Convenience method to test if an edge is valid.
+  bool is_valid() const noexcept {
+    return function != nullptr;
+  }
+
   // Required for use in associative containers.
   bool operator==(const Edge& other) const noexcept {
     return this->function == other.function && this->input_nr == other.input_nr;

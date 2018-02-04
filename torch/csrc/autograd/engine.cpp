@@ -272,7 +272,7 @@ auto Engine::evaluate_function(FunctionTask& task) -> void {
     auto& output = outputs[i];
     const auto& next = fn.next_functions[i];
 
-    if (!next.function) continue;
+    if (!next.is_valid()) continue;
 
     // Check if the next function is ready to be computed
     bool is_ready = false;

@@ -21,6 +21,7 @@ namespace torch { namespace jit { namespace tracer {
 
 using torch::autograd::Variable;
 using torch::autograd::Function;
+using edge_list = std::vector<autograd::Edge>;
 using variable_list = std::vector<Variable>;
 
 // TracingState tracks the necessary state when we are tracing the execution of
@@ -60,7 +61,7 @@ struct TracingState : public std::enable_shared_from_this<TracingState> {
   std::unordered_map<void*, Value*> buffer_map;
   // A pair of (input_flags, output_flags) for each stage
   io_variable_flags_list var_flags;
-  std::vector<std::vector<autograd::Edge>> output_edges;
+  std::vector<edge_list> output_edges;
 
   std::mutex mutex;
   variable_list inputs; // Used only for the duration of first stage

@@ -7,6 +7,9 @@
 #include "torch/csrc/autograd/utils/wrap_outputs.h"
 #include "torch/csrc/utils/python_compat.h"
 #include "torch/csrc/utils/python_numbers.h"
+#include "torch/csrc/jit/ir.h"
+#include "torch/csrc/autograd/variable.h"
+#include "torch/csrc/autograd/function.h"
 
 #include <ATen/ExpandUtils.h>
 #include <vector>
@@ -101,7 +104,7 @@ static Variable sequenceToVariable(const Type& type, PyObject* seq) {
 #endif
   auto obj = THPObjectPtr(PyObject_CallFunctionObjArgs(ctor, seq, nullptr));
   if (!obj) throw python_error();
-  return make_variable(createTensor(obj.get()));
+  return Variable(createTensor(obj.get()), /*requires_grad=*/false);
 }
 
 static Variable valueToTensor(const Type & type, PyObject* value) {
@@ -115,7 +118,7 @@ static Variable valueToTensor(const Type & type, PyObject* value) {
     return type.scalarTensor(Scalar(THPUtils_unpackDouble(value)));
   }
   if (THPModule_isTensor(value)) {
-    return make_variable(createTensor(value));
+    return Variable(createTensor(value), /*requires_grad=*/false);
   }
   throw TypeError("can't assign a %s to a %s", Py_TYPE(value)->tp_name, type.toString());
 }
@@ -147,7 +150,7 @@ static Variable applySlicing(const Variable& self, PyObject* index, variable_lis
     } else if (THPVariable_Check(obj)) {
       handle_var(reinterpret_cast<THPVariable*>(obj)->cdata);
     } else if (THPModule_isTensor(obj)) {
-      handle_var(make_variable(createTensor(obj)));
+      handle_var(Variable(createTensor(obj), /*requires_grad=*/false));
     } else if (PySequence_Check(obj)) {
       handle_var(sequenceToVariable(self.type(), obj));
     } else {
@@ -259,7 +262,7 @@ PyObject* THPVariable_getitem(PyObject* self, PyObject* index) {
   variable_list variableIndices;
   Variable sliced = applySlicing(self_, holder.get(), variableIndices);
   if (variableIndices.empty()) {
-    if (sliced.get() == self_.get()) {
+    if (sliced == self_) {
       // ensure we return a shallow copy for things like x[...]
       sliced = at::alias(sliced);
     }

@@ -267,10 +267,10 @@ def _make_function_class(class_name, update_output, update_grad_input, acc_grad_
 
 
 def _generate_function_classes(scope_dict):
-    global function_list, function_by_name
-    function_list = parse_header(THNN_H_PATH)
-    function_by_name = {fn.name: fn for fn in function_list}
-    classes_to_generate = {fn.name.partition('_')[0] for fn in function_list}
+    global edge_list, function_by_name
+    edge_list = parse_header(THNN_H_PATH)
+    function_by_name = {fn.name: fn for fn in edge_list}
+    classes_to_generate = {fn.name.partition('_')[0] for fn in edge_list}
     exceptions = {
         'Linear',
         'IndexLinear',

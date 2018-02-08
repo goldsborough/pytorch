@@ -28,7 +28,7 @@ struct Function;
 /// A `Variable` augments a `Tensor` with the ability to interact in our
 /// autograd machinery. `Variable` inherits from `Tensor` and may be converted
 /// to and from `Tensor` implicitly.
-class Variable : public at::Tensor {
+struct Variable : public at::Tensor {
  public:
   /// Creates a Variable that is a *view* of another (*base*) variable.
   /// The `gradient_edge` is an optional (gradient_function, input_number) pair.

@@ -4,6 +4,7 @@ import os
 import re
 import setuptools
 import subprocess
+import setuptools
 import sys
 import sysconfig
 import tempfile

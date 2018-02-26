@@ -13,6 +13,8 @@ using namespace at;
 
 constexpr auto Float = ScalarType::Float;
 
+
+
 template<typename scalar_type>
 struct Foo {
   static void apply(Tensor a, Tensor b) {
@@ -133,7 +135,14 @@ int main() {
   ASSERT(what.toTensor().type().scalarType() == kLong);
   ASSERT(Scalar(CPU(kFloat).ones({})).toTensor().type().scalarType() == kFloat);
 
-  dispatch_all<void, Foo>(x.type(),"foo",x,prev_h);
+  if (x.type().scalarType() != ScalarType::Half) {
+    AT_DISPATCH_ALL_TYPES(x.type(), "foo", ([&] {
+      scalar_t s = 1;
+      cout << "hello, dispatch: " << x.type().toString() << s << "\n";
+      auto data = (scalar_t*)x.data_ptr();
+      (void)data;
+    }));
+  }
 
   // test direct C-scalar type conversions
   {

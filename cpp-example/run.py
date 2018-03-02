@@ -49,7 +49,6 @@ def bench():
 
     # Force CUDA initialization
     new_h, new_C = rnn(X, (h, C))
-    print('!!')
     (new_h.sum() + new_C.sum()).backward()
 
     forward_min = math.inf

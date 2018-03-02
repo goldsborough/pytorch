@@ -30,8 +30,8 @@ __device__ __forceinline__ scalar_t elu(scalar_t z, scalar_t alpha = 1.0) {
 
 template <typename scalar_t>
 __device__ __forceinline__ scalar_t d_elu(scalar_t z, scalar_t alpha = 1.0) {
-  const scalar_t e = exp(z);
-  const scalar_t d_relu = z < 0.0 ? 0.0 : 1.0;
+  const auto e = exp(z);
+  const auto d_relu = z < 0.0 ? 0.0 : 1.0;
   return d_relu + (((alpha * (e - 1.0)) < 0.0) ? (alpha * e) : 0.0);
 }
 
@@ -55,49 +55,6 @@ __global__ void lltm_cuda_forward_kernel(
         old_cell[index] + candidate_cell[index] * input_gate[index];
     new_h[index] = tanh(new_cell[index]) * output_gate[index];
   }
-}
-} // namespace
-
-std::vector<at::Tensor> lltm_cuda_forward(
-    at::Tensor input,
-    at::Tensor weights,
-    at::Tensor bias,
-    at::Tensor old_h,
-    at::Tensor old_cell) {
-  auto X = at::cat({old_h, input}, /*dim=*/1);
-  auto gates = at::addmm(bias, X, weights.transpose(0, 1));
-
-  const auto batch_size = old_cell.size(0);
-  const auto state_size = old_cell.size(1);
-
-  auto new_h = at::zeros_like(old_cell);
-  auto new_cell = at::zeros_like(old_cell);
-  auto input_gate = at::zeros_like(old_cell);
-  auto output_gate = at::zeros_like(old_cell);
-  auto candidate_cell = at::zeros_like(old_cell);
-
-  const int threads = 1024;
-  const dim3 blocks(batch_size, (state_size + threads - 1) / threads);
-
-  AT_DISPATCH_FLOATING_TYPES(gates.type(), "lltm_forward_cuda", ([&] {
-    lltm_cuda_forward_kernel<scalar_t><<<blocks, threads>>>(
-        gates.data<scalar_t>(),
-        old_cell.data<scalar_t>(),
-        new_h.data<scalar_t>(),
-        new_cell.data<scalar_t>(),
-        input_gate.data<scalar_t>(),
-        output_gate.data<scalar_t>(),
-        candidate_cell.data<scalar_t>(),
-        state_size);
-  }));
-
-  return {std::move(new_h),
-          std::move(new_cell),
-          std::move(input_gate),
-          std::move(output_gate),
-          std::move(candidate_cell),
-          std::move(X),
-          std::move(gates)};
 }
 
 template <typename scalar_t>
@@ -136,6 +93,43 @@ __global__ void lltm_cuda_backward_kernel(
         d_candidate_cell * d_elu(gate_weights[candidate_cell_index]);
   }
 }
+} // namespace
+
+std::vector<at::Tensor> lltm_cuda_forward(
+    at::Tensor input,
+    at::Tensor weights,
+    at::Tensor bias,
+    at::Tensor old_h,
+    at::Tensor old_cell) {
+  auto X = at::cat({old_h, input}, /*dim=*/1);
+  auto gates = at::addmm(bias, X, weights.transpose(0, 1));
+
+  const auto batch_size = old_cell.size(0);
+  const auto state_size = old_cell.size(1);
+
+  auto new_h = at::zeros_like(old_cell);
+  auto new_cell = at::zeros_like(old_cell);
+  auto input_gate = at::zeros_like(old_cell);
+  auto output_gate = at::zeros_like(old_cell);
+  auto candidate_cell = at::zeros_like(old_cell);
+
+  const int threads = 1024;
+  const dim3 blocks(batch_size, (state_size + threads - 1) / threads);
+
+  AT_DISPATCH_FLOATING_TYPES(gates.type(), "lltm_forward_cuda", ([&] {
+    lltm_cuda_forward_kernel<scalar_t><<<blocks, threads>>>(
+        gates.data<scalar_t>(),
+        old_cell.data<scalar_t>(),
+        new_h.data<scalar_t>(),
+        new_cell.data<scalar_t>(),
+        input_gate.data<scalar_t>(),
+        output_gate.data<scalar_t>(),
+        candidate_cell.data<scalar_t>(),
+        state_size);
+  }));
+
+  return {new_h, new_cell, input_gate, output_gate, candidate_cell, X, gates};
+}
 
 std::vector<at::Tensor> lltm_cuda_backward(
     at::Tensor grad_h,
@@ -146,13 +140,12 @@ std::vector<at::Tensor> lltm_cuda_backward(
     at::Tensor candidate_cell,
     at::Tensor X,
     at::Tensor gate_weights,
-    at::Tensor weights,
-    at::Tensor old_cell) {
-  auto d_old_cell = at::zeros_like(old_cell);
+    at::Tensor weights) {
+  auto d_old_cell = at::zeros_like(new_cell);
   auto d_gates = at::zeros_like(gate_weights);
 
-  const auto batch_size = old_cell.size(0);
-  const auto state_size = old_cell.size(1);
+  const auto batch_size = new_cell.size(0);
+  const auto state_size = new_cell.size(1);
 
   const int threads = 1024;
   const dim3 blocks(batch_size, (state_size + threads - 1) / threads);

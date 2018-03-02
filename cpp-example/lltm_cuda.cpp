@@ -1,6 +1,5 @@
 #include <torch/torch.h>
 
-#include <tuple>
 #include <vector>
 
 // CUDA forward declarations
@@ -24,7 +23,9 @@ std::vector<at::Tensor> lltm_cuda_backward(
     at::Tensor weights,
     at::Tensor old_cell);
 
-////////////////////////////////////////////////////////////////////////////////
+// C++ interface
+
+#define CHECK_CUDA(x) AT_ASSERT(x.type().is_cuda(), #x " must be a CUDA tensor")
 
 std::vector<at::Tensor> lltm_forward(
     at::Tensor input,
@@ -32,13 +33,11 @@ std::vector<at::Tensor> lltm_forward(
     at::Tensor bias,
     at::Tensor old_h,
     at::Tensor old_cell) {
-#define CHECK_CUDA(x) AT_ASSERT(x.type().is_cuda(), #x " must be a CUDA tensor")
   CHECK_CUDA(input);
   CHECK_CUDA(weights);
   CHECK_CUDA(bias);
   CHECK_CUDA(old_h);
   CHECK_CUDA(old_cell);
-#undef CHECK_CUDA
 
   return lltm_cuda_forward(input, weights, bias, old_h, old_cell);
 }
@@ -54,7 +53,6 @@ std::vector<at::Tensor> lltm_backward(
     at::Tensor gate_weights,
     at::Tensor weights,
     at::Tensor old_cell) {
-#define CHECK_CUDA(x) AT_ASSERT(x.type().is_cuda(), #x " must be a CUDA tensor")
   CHECK_CUDA(grad_h);
   CHECK_CUDA(grad_cell);
   CHECK_CUDA(input_gate);
@@ -64,7 +62,6 @@ std::vector<at::Tensor> lltm_backward(
   CHECK_CUDA(gate_weights);
   CHECK_CUDA(weights);
   CHECK_CUDA(old_cell);
-#undef CHECK_CUDA
   return lltm_cuda_backward(
       grad_h,
       grad_cell,

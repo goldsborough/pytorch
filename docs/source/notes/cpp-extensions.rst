@@ -1,20 +1,22 @@
-# Post
+Extending PyTorch with Custom C++ Extensions
+============================================
 
-Even though PyTorch already provides a plethora of operations related to neural
-networks, arbitrary tensor algebra, data wrangling and other purposes, you may
-still find yourself in need of a more customized operation. For example, you
-might want to use a novel activation function you found in a paper, or implement
-an operation you developed as part of your research.
+PyTorch provides a plethora of operations related to neural networks, arbitrary
+tensor algebra, data wrangling and other purposes. However, you may still find
+yourself in need of a more customized operation. For example, you might want to
+use a novel activation function you found in a paper, or implement an operation
+you developed as part of your research.
 
 The easiest way of integrating such a custom operation in PyTorch is to write it
-in Python by extending `Function` and `Module` as outlined [here](). This gives
-you the full power of automatic differentiation (spares you from writing the
-backward pass) as well as the usual expressiveness of Python. However, there may
-be times when your operation is better implemented in C++. For example, your
-code may need to be *really* fast because it is called very frequently in your
-model or is very expensive even for few calls. Another plausible reason is that
-it depends on or interacts with other C or C++ libraries. To address such cases,
-PyTorch provides a straightforward mechanism of writing custom *C++ extensions*.
+in Python by extending :class:`Function` and :class:`Module` as outlined `here
+<http://pytorch.org/docs/master/notes/extending.html>`_. This gives you the full
+power of automatic differentiation (spares you from writing the backward pass)
+as well as the usual expressiveness of Python. However, there may be times when
+your operation is better implemented in C++. For example, your code may need to
+be *really* fast because it is called very frequently in your model or is very
+expensive even for few calls. Another plausible reason is that it depends on or
+interacts with other C or C++ libraries. To address such cases, PyTorch provides
+a straightforward mechanism of writing custom *C++ extensions*.
 
 C++ extensions are a mechanism we have developed to allow users (you) to create
 C++ operations defined *out-of-source*, i.e. separate from the PyTorch backend.
@@ -24,7 +26,8 @@ turning it into a native PyTorch function is largely a matter of boilerplate,
 which you can tackle after the fact if you decide to contribute your extension
 upstream.
 
-## Motivation and Example
+Motivation and Example
+----------------------
 
 Let's walk through an example. If you are being chased or someone will fire you
 if you don't get that op done by the end of the day, you can skip this section
@@ -129,13 +132,15 @@ powers much of PyTorch's backend, and see how easily it lets us translate our
 Python code. We'll then speed things up even more by moving parts of model to
 CUDA kernels and benefit from the massive parallelism GPUs provide.
 
-## Writing a C++ Extension
+Writing a C++ Extension
+-----------------------
 
 C++ extensions come in two flavors: They can be built "ahead of time" with
 `setuptools`, or "just in time" via `torch.utils.cpp_extension.load`. We'll look
 at the first approach first and discuss the latter later.
 
-### Building With `setuptools`
+Building With `setuptools`
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For the "ahead of time" flavor, we build our C++ extension by writing a
 `setup.py` script that uses setuptools to compile our C++ code. For the LLTM, it
@@ -168,7 +173,8 @@ and also manages mixed compilation in the case of mixed C++/CUDA extensions. And
 that's all we really need to know about building C++ extensions for now! More
 advanced documentation is available [here]().
 
-### Writing An Op
+Writing the C++ Op
+^^^^^^^^^^^^^^^^^^
 
 Finally, the code for our C++ extension goes into `lltm.cpp`. Let's start
 implementing the LLTM in C++! One function we'll require for the backward pass
@@ -201,7 +207,8 @@ be inspected [here](doc/Tensor.h). Notice also that we can include `<iostream>`
 or *any other C or C++ header* -- we have the full power of C++11 (including
 `auto`) at our disposal.
 
-#### Forward Pass
+Forward Pass
+************
 
 Next we can port our entire forward pass to C++:
 
@@ -236,7 +243,8 @@ std::vector<at::Tensor> lltm_forward(
 }
 ```
 
-#### Backward Pass
+Backward Pass
+*************
 
 At this time, PyTorch's C++ interface does not support automatic
 differentiation. This is something the PyTorch team is working on, but it is not
@@ -297,7 +305,8 @@ std::vector<at::Tensor> lltm_backward(
 }
 ```
 
-### Binding to Python
+Binding to Python
+^^^^^^^^^^^^^^^^^
 
 Once you have your operation written in C++ and ATen, you can use pybind11 to
 bind your C++ functions or classes into Python in a very simple manner.
@@ -321,7 +330,8 @@ is to avoid having to maintain the name of the extension in two places (the
 build script and your C++ code), as a mismatch between the two can lead to nasty
 and hard to track issues.
 
-### Using Your Extension
+Using Your Extension
+^^^^^^^^^^^^^^^^^^^^
 
 We are now set to import our extension in PyTorch. At this point, your directory
 structure could look something like this:
@@ -456,7 +466,8 @@ class LLTM(torch.nn.Module):
         return LLTMFunction.apply(input, self.weights, self.bias, *state)
 ```
 
-#### Performance Comparison
+Performance Comparison
+**********************
 
 Now that we are able to use and call our C++ code from PyTorch, we can run a
 small benchmark to see how much performance we gained from rewriting our op in
@@ -512,11 +523,68 @@ parallelize computation graphs, may use a more efficient flow of operations
 overall, and is also implemented in C++, so it's expected to be fast.
 Nevertheless, this is a good start.
 
-#### Performance on GPU Devices
+Performance on GPU Devices
+**************************
 
-run on GPU
+A wonderful fact about PyTorch's *ATen* backend is that it abstracts the
+computing device you are running on. This means the same code we wrote for CPU
+can *also* run on GPU, and individual operations will correspondingly dispatch
+to GPU-optimized implementations. For certain operations like matrix multiply
+(`mm` and `admm`), this is a big win. Let's take a look at how much performance
+we gain from running our C++ code with CUDA tensors. No changes to our
+implementation are required, we simply need to move our tensors to GPU memory
+with `.cuda()` from Python:
 
-### JIT Compiling Extensions
+```py
+import torch
+
+assert torch.cuda.is_available()
+
+batch_size = 16
+input_features = 32
+state_size = 128
+
+# Note the .cuda() calls here!
+X = torch.randn(batch_size, input_features).cuda()
+h = torch.randn(batch_size, state_size).cuda()
+C = torch.randn(batch_size, state_size).cuda()
+
+rnn = LLTM(input_features, state_size).cuda()
+
+forward = 0
+backward = 0
+for _ in range(100000):
+    start = time.time()
+    new_h, new_C = rnn(X, (h, C))
+    forward += time.time() - start
+
+    start = time.time()
+    (new_h.sum() + new_C.sum()).backward()
+    backward += time.time() - start
+
+print('Forward: {:.3f} us | Backward {:.3f} us'.format(forward * 1e6/1e5,
+                                                       backward * 1e6/1e5))
+```
+
+Once more comparing our plain PyTorch code with our C++ version, now both
+running on CUDA devices, we again see performance gains. For Python/PyTorch:
+
+```sh
+Forward: 187.719 us | Backward 410.815 us
+```
+
+And C++/ATen:
+
+```sh
+Forward: 149.802 us | Backward 393.458 us
+```
+
+That's a great overall speedup compared to non-CUDA code. However, we can pull
+even more performance out of our C++ code by writing custom CUDA kernels, which
+is outlined further below.
+
+JIT Compiling Extensions
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 Previously, I mentioned there were two ways of building C++ extensions: using
 `setuptools` or just in time (JIT). Having covered the former, let's elaborate
@@ -526,7 +594,8 @@ PyTorch's API called `torch.utils.cpp_extension.load`. For the LLTM, this would
 look as simple as this:
 
 ```py
-lltm = torch.utils.cpp_extension.load(name="lltm", sources=["lltm.cpp"])
+from torch.utils.cpp_extension import load
+lltm = load(name="lltm", sources=["lltm.cpp"])
 ```
 
 Here, we provide the function with the same information as for `setuptools`. In
@@ -558,11 +627,428 @@ the Ninja build system to build your sources, re-compilation is incremental and
 thus re-loading the extension when you run your Python module a second time is
 fast and has low overhead.
 
-## Writing a Mixed C++/CUDA extension
+Writing a Mixed C++/CUDA extension
+----------------------------------
 
-To really take our implementation to the next level, we can parallelize parts of
-our forward and backward pass with CUDA and run our operations on a GPU. For the
-LLTM, this has the prospect of being particularly effective, as there are a
-large number of pointwise operations in sequence, that can all be fused and
-parallelized in a single CUDA kernel. Let's see how we could write such a CUDA
-kernel and integrate it with PyTorch using this extension mechanism.
+To really take our implementation to the next level, we can hand-write parts of
+our forward and backward passes with custom CUDA kernels. For the LLTM, this has
+the prospect of being particularly effective, as there are a large number of
+pointwise operations in sequence, that can all be fused and parallelized in a
+single CUDA kernel. Let's see how we could write such a CUDA kernel and
+integrate it with PyTorch using this extension mechanism.
+
+The general strategy for writing a CUDA extension is to first write a C++ file
+which defines the functions that will be called from Python, and binds those
+functions to Python with pybind11. Furthermore, this file will also *declare*
+functions that are defined in CUDA (`.cu`) files. The C++ functions will then do
+some checks and ultimately forward its calls to the CUDA functions. In the CUDA
+files, we write our actual CUDA kernels. Our build mechanism will then take care
+of compiling the C++ sources with a C++ compiler like GCC and the CUDA sources
+with NVIDIA's nvcc compiler. This ensures that each compiler takes care of files
+it knows best to compile. Ultimately, they will be linked into one shared
+library that is available to us from Python code.
+
+We'll start with the C++ file, which you can call `lltm_cuda.cpp`, for example:
+
+```c++
+#include <torch/torch.h>
+
+#include <vector>
+
+// CUDA forward declarations
+
+std::vector<at::Tensor> lltm_cuda_forward(
+    at::Tensor input,
+    at::Tensor weights,
+    at::Tensor bias,
+    at::Tensor old_h,
+    at::Tensor old_cell);
+
+std::vector<at::Tensor> lltm_cuda_backward(
+    at::Tensor grad_h,
+    at::Tensor grad_cell,
+    at::Tensor new_cell,
+    at::Tensor input_gate,
+    at::Tensor output_gate,
+    at::Tensor candidate_cell,
+    at::Tensor X,
+    at::Tensor gate_weights,
+    at::Tensor weights,
+    at::Tensor old_cell);
+
+// C++ interface
+
+#define CHECK_CUDA(x) AT_ASSERT(x.type().is_cuda(), #x " must be a CUDA tensor")
+
+std::vector<at::Tensor> lltm_forward(
+    at::Tensor input,
+    at::Tensor weights,
+    at::Tensor bias,
+    at::Tensor old_h,
+    at::Tensor old_cell) {
+  CHECK_CUDA(input);
+  CHECK_CUDA(weights);
+  CHECK_CUDA(bias);
+  CHECK_CUDA(old_h);
+  CHECK_CUDA(old_cell);
+
+  return lltm_cuda_forward(input, weights, bias, old_h, old_cell);
+}
+
+std::vector<at::Tensor> lltm_backward(
+    at::Tensor grad_h,
+    at::Tensor grad_cell,
+    at::Tensor new_cell,
+    at::Tensor input_gate,
+    at::Tensor output_gate,
+    at::Tensor candidate_cell,
+    at::Tensor X,
+    at::Tensor gate_weights,
+    at::Tensor weights,
+    at::Tensor old_cell) {
+  CHECK_CUDA(grad_h);
+  CHECK_CUDA(grad_cell);
+  CHECK_CUDA(input_gate);
+  CHECK_CUDA(output_gate);
+  CHECK_CUDA(candidate_cell);
+  CHECK_CUDA(X);
+  CHECK_CUDA(gate_weights);
+  CHECK_CUDA(weights);
+  CHECK_CUDA(old_cell);
+  return lltm_cuda_backward(
+      grad_h,
+      grad_cell,
+      new_cell,
+      input_gate,
+      output_gate,
+      candidate_cell,
+      X,
+      gate_weights,
+      weights,
+      old_cell);
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+  m.def("forward", &lltm_forward, "LLTM forward (CUDA)");
+  m.def("backward", &lltm_backward, "LLTM backward (CUDA)");
+}
+```
+
+As you can see, it is largely boilerplate, checks and forwarding to functions
+that we'll define in the CUDA file. This file you can name `lltm_cuda_kernel.cu`
+(note the `.cu` extension!). NVCC can reasonably compile C++11, thus you can
+still use ATen (but not `torch.h`) and the standard library. Note that
+`setuptools` cannot handle files with the same name but different extensions, so
+if you use the `setup.py` method instead of the JIT method, you must give your
+CUDA file a different name than your C++ file (for the JIT method, `lltm.cpp`
+and `lltm.cu` would work fine). You can (or must) also include `cuda.h` and
+`cuda_runtime.h`. Let's take a small peek at what this file will look like:
+
+
+```cpp
+#include <ATen/ATen.h>
+
+#include <cuda.h>
+#include <cuda_runtime.h>
+
+#include <vector>
+
+template <typename scalar_t>
+__device__ __forceinline__ scalar_t sigmoid(scalar_t z) {
+  return 1.0 / (1.0 + exp(-z));
+}
+```
+
+Here you can see the headers I just described, as well as the fact that we are
+using CUDA-specific declarations like `__device__` and `__forceinline__` and
+functions like `exp()`. Let's continue with a few more helper functions that
+we'll need:
+
+```cpp
+template <typename scalar_t>
+__device__ __forceinline__ scalar_t d_sigmoid(scalar_t z) {
+  const auto s = sigmoid(z);
+  return (1.0 - s) * s;
+}
+
+template <typename scalar_t>
+__device__ __forceinline__ scalar_t d_tanh(scalar_t z) {
+  const auto t = tanh(z);
+  return 1 - (t * t);
+}
+
+template <typename scalar_t>
+__device__ __forceinline__ scalar_t elu(scalar_t z, scalar_t alpha = 1.0) {
+  return fmax(0.0, z) + fmin(0.0, alpha * (exp(z) - 1.0));
+}
+
+template <typename scalar_t>
+__device__ __forceinline__ scalar_t d_elu(scalar_t z, scalar_t alpha = 1.0) {
+  const auto e = exp(z);
+  const auto d_relu = z < 0.0 ? 0.0 : 1.0;
+  return d_relu + (((alpha * (e - 1.0)) < 0.0) ? (alpha * e) : 0.0);
+}
+```
+
+To now actually implement a function, we'll again need two things: one function
+that performs operations we don't wish to explicitly handwrite and calls into
+CUDA kernels, and then the actual CUDA kernel for the parts we want to speed up.
+For the forward pass, the first function should look like this:
+
+```cppt
+std::vector<at::Tensor> lltm_cuda_forward(
+    at::Tensor input,
+    at::Tensor weights,
+    at::Tensor bias,
+    at::Tensor old_h,
+    at::Tensor old_cell) {
+  // Operations that will be handled by ATen
+  auto X = at::cat({old_h, input}, /*dim=*/1);
+  auto gates = at::addmm(bias, X, weights.transpose(0, 1));
+
+  const auto batch_size = old_cell.size(0);
+  const auto state_size = old_cell.size(1);
+
+  // Allocate some buffers (in GPU memory)
+  auto new_h = at::zeros_like(old_cell);
+  auto new_cell = at::zeros_like(old_cell);
+  auto input_gate = at::zeros_like(old_cell);
+  auto output_gate = at::zeros_like(old_cell);
+  auto candidate_cell = at::zeros_like(old_cell);
+
+  // Launch a CUDA kernel.
+  const int threads = 1024;
+  const dim3 blocks(batch_size, (state_size + threads - 1) / threads);
+
+  // Handles type dispatch for us.
+  AT_DISPATCH_FLOATING_TYPES(gates.type(), "lltm_forward_cuda", ([&] {
+    lltm_cuda_forward_kernel<scalar_t><<<blocks, threads>>>(
+        gates.data<scalar_t>(),
+        old_cell.data<scalar_t>(),
+        new_h.data<scalar_t>(),
+        new_cell.data<scalar_t>(),
+        input_gate.data<scalar_t>(),
+        output_gate.data<scalar_t>(),
+        candidate_cell.data<scalar_t>(),
+        state_size);
+  }));
+
+  return {new_h, new_cell, input_gate, output_gate, candidate_cell, X, gates};
+}
+```
+
+The main point of interest here is the `AT_DISPATCH_FLOATING_TYPES` macro and
+the kernel launch (indicated by the `<<<...>>>`). While ATen abstracts away the
+device and datatype of the tensors we deal with, a tensor will, at runtime,
+still be backed by memory of a concrete type, on a concrete device. As such, we
+need a way of determining at runtime what type a tensor is, and then selectively
+call functions with the corresponding correct type signature. Done manually,
+this would look (conceptually) something like this:
+
+```cpp
+switch (tensor.type().scalarType()) {
+  case at::ScalarType::Double:
+    return function<double>(tensor.data<double>());
+  case at::ScalarType::Float:
+    return function<float>(tensor.data<float>());
+  ...
+}
+```
+
+The purpose of `AT_DISPATCH_FLOATING_TYPES` is to take care of this dispatch for
+us. It takes a type (`gates.type()` in our case), a name (for error messages)
+and a lambda function. Inside this lambda function, the type alias `scalar_t`
+will be available and is defined as the type that the tensor actually is at
+runtime in that context. As such, if we have a template function (which our CUDA
+kernel will be), we can instantiate it with this `scalar_t` alias, and the
+correct function will be called. In this case, we also want to retrieve the data
+pointers of the tensors as pointers of that `scalar_t` type. Note that if you
+wanted to dispatch over all types and not just floating point types (`Float` and
+`Double`), you can use `AT_DISPATCH_ALL_TYPES` .
+
+Note that we still perform some operations with plain ATen. These operations
+will still run on the GPU, but using ATen's default implementations. This makes
+sense, because ATen will use highly optimized routines for things like matrix
+multiplies (e.g. `addmm`) or convolutions which would be much harder to
+implement and improve ourselves.
+
+As for the kernel launch itself, we are here specifying that each CUDA block
+will have 1024 threads, and that the entire GPU grid is split into as many
+blocks of `1 x 1024` threads as are required to fill our matrices with one
+thread per component. For example, if our state size was 2048 and our batch size
+4, we'd launch a total of `4 x 2 = 8` blocks with each 1024 threads. If you've
+never heard of CUDA "blocks" or "grids" before, an [introduction to
+CUDA](https://devblogs.nvidia.com/even-easier-introduction-cuda/) may help.
+
+The actual CUDA kernel is fairly simple (if you've ever programmed GPUs before):
+
+```cpp
+template <typename scalar_t>
+__global__ void lltm_cuda_forward_kernel(
+    const scalar_t* __restrict__ gates,
+    const scalar_t* __restrict__ old_cell,
+    scalar_t* __restrict__ new_h,
+    scalar_t* __restrict__ new_cell,
+    scalar_t* __restrict__ input_gate,
+    scalar_t* __restrict__ output_gate,
+    scalar_t* __restrict__ candidate_cell,
+    size_t state_size) {
+  const auto column = blockIdx.x * blockDim.x + threadIdx.x;
+  const auto index = blockIdx.y * state_size + column;
+  if (column < state_size) {
+    input_gate[index] = sigmoid(gates[index]);
+    output_gate[index] = sigmoid(gates[state_size + index]);
+    candidate_cell[index] = elu(gates[2 * state_size + index]);
+    new_cell[index] =
+        old_cell[index] + candidate_cell[index] * input_gate[index];
+    new_h[index] = tanh(new_cell[index]) * output_gate[index];
+  }
+}
+```
+
+What's primarily interesting here is that we are able to compute all of these
+pointwise operations entirely in parallel for each individual component in our
+gate matrices. If you imagine having to do this with a giant `for` loop over a
+million elements in serial, you can see why this would be much faster.
+
+The backwards pass follows much the same pattern and I won't elaborate further
+on it:
+
+```c++
+template <typename scalar_t>
+__global__ void lltm_cuda_backward_kernel(
+    scalar_t* __restrict__ d_old_cell,
+    scalar_t* __restrict__ d_gates,
+    const scalar_t* __restrict__ grad_h,
+    const scalar_t* __restrict__ grad_cell,
+    const scalar_t* __restrict__ new_cell,
+    const scalar_t* __restrict__ input_gate,
+    const scalar_t* __restrict__ output_gate,
+    const scalar_t* __restrict__ candidate_cell,
+    const scalar_t* __restrict__ gate_weights,
+    size_t state_size) {
+  const int column = blockIdx.x * blockDim.x + threadIdx.x;
+  const int index = blockIdx.y * state_size + column;
+  if (column < state_size) {
+    const auto d_output_gate = tanh(new_cell[index]) * grad_h[index];
+    const auto d_tanh_new_cell = output_gate[index] * grad_h[index];
+    const auto d_new_cell =
+        d_tanh(new_cell[index]) * d_tanh_new_cell + grad_cell[index];
+
+    d_old_cell[index] = d_new_cell;
+    const auto d_candidate_cell = input_gate[index] * d_new_cell;
+    const auto d_input_gate = candidate_cell[index] * d_new_cell;
+
+    const auto input_gate_index = index;
+    const auto output_gate_index = state_size + index;
+    const auto candidate_cell_index = 2 * state_size + index;
+
+    d_gates[input_gate_index] =
+        d_input_gate * d_sigmoid(gate_weights[input_gate_index]);
+    d_gates[output_gate_index] =
+        d_output_gate * d_sigmoid(gate_weights[output_gate_index]);
+    d_gates[candidate_cell_index] =
+        d_candidate_cell * d_elu(gate_weights[candidate_cell_index]);
+  }
+}
+
+std::vector<at::Tensor> lltm_cuda_backward(
+    at::Tensor grad_h,
+    at::Tensor grad_cell,
+    at::Tensor new_cell,
+    at::Tensor input_gate,
+    at::Tensor output_gate,
+    at::Tensor candidate_cell,
+    at::Tensor X,
+    at::Tensor gate_weights,
+    at::Tensor weights,
+    at::Tensor old_cell) {
+  auto d_old_cell = at::zeros_like(old_cell);
+  auto d_gates = at::zeros_like(gate_weights);
+
+  const auto batch_size = old_cell.size(0);
+  const auto state_size = old_cell.size(1);
+
+  const int threads = 1024;
+  const dim3 blocks(batch_size, (state_size + threads - 1) / threads);
+
+  AT_DISPATCH_FLOATING_TYPES(X.type(), "lltm_forward_cuda", ([&] {
+    lltm_cuda_backward_kernel<scalar_t><<<blocks, threads>>>(
+        d_old_cell.data<scalar_t>(),
+        d_gates.data<scalar_t>(),
+        grad_h.data<scalar_t>(),
+        grad_cell.data<scalar_t>(),
+        new_cell.data<scalar_t>(),
+        input_gate.data<scalar_t>(),
+        output_gate.data<scalar_t>(),
+        candidate_cell.data<scalar_t>(),
+        gate_weights.data<scalar_t>(),
+        state_size);
+  }));
+
+  auto d_weights = d_gates.t().mm(X);
+  auto d_bias = d_gates.sum(/*dim=*/0, /*keepdim=*/true);
+  auto d_X = d_gates.mm(weights).split(state_size, /*dim=*/1);
+
+  return {d_X[0], d_X[1], d_weights, d_bias, d_old_cell};
+}
+```
+
+Integrating a C++/CUDA Operation
+********************************
+
+Integration of our CUDA-enabled op with PyTorch is again very straightforward.
+If you want to write a `setup.py` script, it could look like this:
+
+```py
+from setuptools import setup
+from torch.utils.cpp_extension import BuildExtension, CUDAExtension
+
+setup(
+    name='lltm',
+    ext_modules=[
+        CUDAExtension('lltm_cuda', [
+            'lltm_cuda.cpp',
+            'lltm_cuda_kernel.cu',
+        ])
+    ],
+    cmdclass={
+        'build_ext': BuildExtension
+    })
+```
+
+Instead of `CppExtension`, we now use `CUDAExtension`. We can just specify the
+`.cu` file along with the `.cpp` files -- the library takes care of all the
+hassle this entails for you. The JIT mechanism is even simpler:
+
+```py
+from torch.utils.cpp_extension import load
+lltm = load(name='lltm', sources=['lltm_cuda.cpp', 'lltm_cuda_kernel.cu'])
+```
+
+Performance Comparison
+**********************
+
+Our hope was that parallelizing and fusing the pointwise operations of our code
+with CUDA would improve the performance of our LLTM. Let's see if that holds
+true. We can run the code I posted earlier to run a benchmark. Our fastest
+version earlier was the CUDA-based C++ code:
+
+```sh
+Forward: 149.802 us | Backward 393.458 us
+```
+
+And now with our custom CUDA kernel:
+
+```sh
+Forward: 129.431 us | Backward 304.641 us
+```
+
+More performance increases!
+
+## Conclusion
+
+You should now be equipped with a good overview of PyTorch's C++ extension
+mechanism as well as a motivation for using them. You can find the code examples
+used for this tutorial [here](). If you have questions, please use [the
+forums]().

@@ -9,9 +9,8 @@ class TestModel : public Module {
  public:
   TestModel() {
     register_module("l1", Linear(10, 3));
-    // add(Linear(10, 3).build(), "l1");
-    // add(Linear(3, 5).build(), "l2");
-    // add(Linear(5, 100).build(), "l3");
+    register_module("l2", Linear(3, 5));
+    register_module("l3", Linear(5, 100));
   }
 
   variable_list forward(variable_list input) override {
@@ -19,23 +18,23 @@ class TestModel : public Module {
   };
 };
 
-// class NestedModel : public Module {
-//  public:
-//   NestedModel() {
-//     add(Linear(5, 20).build(), "l1");
-//     add(std::make_shared<TestModel>(), "test");
-//     add(Var(at::CPU(at::kFloat).tensor({3, 2, 21}), false), "param");
-//   }
-//
-//   variable_list forward(variable_list input) override {
-//     return input;
-//   };
-// };
+class NestedModel : public Module {
+ public:
+  NestedModel() {
+    register_module("l1", Linear(5, 20));
+    add(std::make_shared<TestModel>(), "test");
+    add(Var(at::CPU(at::kFloat).tensor({3, 2, 21}), false), "param");
+  }
+
+  variable_list forward(variable_list input) override {
+    return input;
+  };
+};
 
 TEST_CASE("containers") {
   SECTION("conv") {
     SECTION("1d") {
-      auto model = Conv1d(3, 2, 3).stride(2).build();
+      auto model = Conv1d(Conv1dOptions(3, 2, 3).stride(2));
       auto x = Var(at::CPU(at::kFloat).randn({2, 3, 5}), true);
       auto y = model->forward({x})[0];
       Variable s = y.sum();
@@ -49,57 +48,57 @@ TEST_CASE("containers") {
 
       REQUIRE(model->parameters().at("weight").grad().numel() == 3 * 2 * 3);
     }
-    // SECTION("2d") {
-    //   SECTION("even") {
-    //     auto model = Conv2d(3, 2, 3).stride(2).build();
-    //     auto x = Var(at::CPU(at::kFloat).randn({2, 3, 5, 5}), true);
-    //     auto y = model->forward({x})[0];
-    //     Variable s = y.sum();
-    //
-    //     backward(s);
-    //     REQUIRE(y.ndimension() == 4);
-    //     REQUIRE(s.ndimension() == 0);
-    //     for (auto i = 0; i < 4; i++) {
-    //       REQUIRE(y.size(i) == 2);
-    //     }
-    //
-    //     REQUIRE(
-    //         model->parameters().at("weight").grad().numel() == 3 * 2 * 3 * 3);
-    //   }
-    //
-    //   SECTION("uneven") {
-    //     auto model = Conv2d(3, 2, {3, 2}).stride({2, 2}).build();
-    //     auto x = Var(at::CPU(at::kFloat).randn({2, 3, 5, 4}), true);
-    //     auto y = model->forward({x})[0];
-    //     Variable s = y.sum();
-    //
-    //     backward(s);
-    //     REQUIRE(y.ndimension() == 4);
-    //     REQUIRE(s.ndimension() == 0);
-    //     for (auto i = 0; i < 4; i++) {
-    //       REQUIRE(y.size(i) == 2);
-    //     }
-    //
-    //     REQUIRE(
-    //         model->parameters().at("weight").grad().numel() == 3 * 2 * 3 * 2);
-    //   }
-    // }
-    // SECTION("3d") {
-    //   auto model = Conv3d(3, 2, 3).stride(2).build();
-    //   auto x = Var(at::CPU(at::kFloat).randn({2, 3, 5, 5, 5}), true);
-    //   auto y = model->forward({x})[0];
-    //   Variable s = y.sum();
-    //
-    //   backward(s);
-    //   REQUIRE(y.ndimension() == 5);
-    //   REQUIRE(s.ndimension() == 0);
-    //   for (auto i = 0; i < 5; i++) {
-    //     REQUIRE(y.size(i) == 2);
-    //   }
-    //
-    //   REQUIRE(
-    //       model->parameters().at("weight").grad().numel() == 3 * 2 * 3 * 3 * 3);
-    // }
+    SECTION("2d") {
+      SECTION("even") {
+        auto model = Conv2d(Conv2dOptions(3, 2, 3).stride(2));
+        auto x = Var(at::CPU(at::kFloat).randn({2, 3, 5, 5}), true);
+        auto y = model->forward({x})[0];
+        Variable s = y.sum();
+
+        backward(s);
+        REQUIRE(y.ndimension() == 4);
+        REQUIRE(s.ndimension() == 0);
+        for (auto i = 0; i < 4; i++) {
+          REQUIRE(y.size(i) == 2);
+        }
+
+        REQUIRE(
+            model->parameters().at("weight").grad().numel() == 3 * 2 * 3 * 3);
+      }
+
+      SECTION("uneven") {
+        auto model = Conv2d(Conv2dOptions(3, 2, {3, 2}).stride({2, 2}));
+        auto x = Var(at::CPU(at::kFloat).randn({2, 3, 5, 4}), true);
+        auto y = model->forward({x})[0];
+        Variable s = y.sum();
+
+        backward(s);
+        REQUIRE(y.ndimension() == 4);
+        REQUIRE(s.ndimension() == 0);
+        for (auto i = 0; i < 4; i++) {
+          REQUIRE(y.size(i) == 2);
+        }
+
+        REQUIRE(
+            model->parameters().at("weight").grad().numel() == 3 * 2 * 3 * 2);
+      }
+    }
+    SECTION("3d") {
+      auto model = Conv3d(Conv3dOptions(3, 2, 3).stride(2));
+      auto x = Var(at::CPU(at::kFloat).randn({2, 3, 5, 5, 5}), true);
+      auto y = model->forward({x})[0];
+      Variable s = y.sum();
+
+      backward(s);
+      REQUIRE(y.ndimension() == 5);
+      REQUIRE(s.ndimension() == 0);
+      for (auto i = 0; i < 5; i++) {
+        REQUIRE(y.size(i) == 2);
+      }
+
+      REQUIRE(
+          model->parameters().at("weight").grad().numel() == 3 * 2 * 3 * 3 * 3);
+    }
   }
   // SECTION("linear") {
   //   SECTION("basic1") {
@@ -162,9 +161,8 @@ TEST_CASE("containers") {
   //     auto model = Embedding(dict_size, 2).build();
   //     // Cannot get gradients to change indices (input) - only for embedding
   //     // params
-  //     auto x = Var(at::CPU(at::kLong).tensor({10}).fill_(dict_size - 1), false);
-  //     auto y = model->forward({x})[0];
-  //     Variable s = y.sum();
+  //     auto x = Var(at::CPU(at::kLong).tensor({10}).fill_(dict_size - 1),
+  //     false); auto y = model->forward({x})[0]; Variable s = y.sum();
   //
   //     backward(s);
   //     REQUIRE(y.ndimension() == 2);
@@ -172,7 +170,8 @@ TEST_CASE("containers") {
   //     REQUIRE(y.size(0) == 10);
   //     REQUIRE(y.size(1) == 2);
   //
-  //     REQUIRE(model->parameters().at("table").grad().numel() == 2 * dict_size);
+  //     REQUIRE(model->parameters().at("table").grad().numel() == 2 *
+  //     dict_size);
   //   }
   //
   //   SECTION("list") {

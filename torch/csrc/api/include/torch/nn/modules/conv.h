@@ -5,17 +5,15 @@
 
 #include <cstdint>
 
-namespace torch { namespace nn {
+namespace torch {
+namespace nn {
 
-template <size_t D, typename Derived>
-class Conv : public torch::nn::CloneableModule<Derived> {
- public:
-  Conv(
+template <size_t D>
+struct ConvOptions {
+  ConvOptions(
       int64_t input_channels,
       int64_t output_channels,
       ExpandingArray<D> kernel_size);
-
-  void reset() override;
 
   TORCH_ARG(int64_t, input_channels);
   TORCH_ARG(int64_t, output_channels);
@@ -27,16 +25,29 @@ class Conv : public torch::nn::CloneableModule<Derived> {
   TORCH_ARG(bool, transposed) = false;
   TORCH_ARG(bool, with_bias) = true;
   TORCH_ARG(int64_t, groups) = 1;
-  TORCH_ARG(Variable, weight);
-  TORCH_ARG(Variable, bias);
 };
 
-#define CONV_D(dimensions)                                                     \
-  class Conv##dimensions##d : public Conv<(dimensions), Conv##dimensions##d> { \
-   public:                                                                     \
-    using Conv<(dimensions), Conv##dimensions##d>::Conv;                       \
-    variable_list forward(variable_list) override;                             \
-  }
+template <size_t D, typename Derived>
+class ConvImpl : public torch::nn::Module {
+ public:
+  explicit ConvImpl(ConvOptions<D> options);
+
+  const ConvOptions<D>& options() const noexcept;
+
+ protected:
+  Variable weight_;
+  Variable bias_;
+  ConvOptions<D> options_;
+};
+
+#define CONV_D(D)                                             \
+  class Conv##D##dImpl : public ConvImpl<D, Conv##D##dImpl> { \
+   public:                                                    \
+    using ConvImpl<D, Conv##D##dImpl>::ConvImpl;              \
+    variable_list forward(variable_list) override;            \
+  };                                                          \
+  using Conv##D##dOptions = ConvOptions<D>;                   \
+  TORCH_MODULE(Conv##D##d)
 
 CONV_D(1);
 CONV_D(2);
@@ -44,4 +55,5 @@ CONV_D(3);
 
 #undef CONV_D
 
-}} // namespace torch::nn
+} // namespace nn
+} // namespace torch

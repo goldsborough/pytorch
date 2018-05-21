@@ -11,7 +11,8 @@
 #include <string>
 #include <unordered_map>
 
-namespace torch { namespace nn {
+namespace torch {
+namespace nn {
 
 class Module {
  public:
@@ -93,6 +94,12 @@ class Module {
   // Be careful when registering Tensors that are not variables
   Variable& add(Variable, std::string const&);
 
+  template <typename ModuleType>
+  ModuleType&& register_module(const std::string& name, ModuleType&& module) {
+    add(module.get(), name);
+    return std::forward<ModuleType>(module);
+  }
+
  private:
   /// The module's name (e.g. "LSTM").
   mutable at::optional<std::string> name_;
@@ -139,9 +146,10 @@ class CloneableModule : public Module {
     return ptr;
   }
 };
-}} // namespace torch::nn
+} // namespace nn
+} // namespace torch
 
-#define TORCH_ATTR(T, name)                         \
+#define TORCH_ARG(T, name)                          \
   auto name(const T& new_##name)->decltype(*this) { \
     this->name##_ = new_##name;                     \
     return *this;                                   \
@@ -154,3 +162,29 @@ class CloneableModule : public Module {
     return this->name##_;                           \
   }                                                 \
   T name##_
+
+#define TORCH_MODULE(Name)                                             \
+  class Name {                                                         \
+   public:                                                             \
+    template <typename... Args>                                        \
+    explicit Name(Args&&... args)                                      \
+        : impl_(new Name##Impl({std::forward<Args>(args)...})) {}      \
+    template <typename T>                                              \
+    explicit Name(T&& arg)                                             \
+        : impl_(std::make_shared<Name##Impl>(std::forward<T>(arg))) {} \
+    variable_list forward(variable_list inputs) {                      \
+      return impl_->forward(std::move(inputs));                        \
+    }                                                                  \
+    Name##Impl* operator->() {                                         \
+      return impl_.get();                                              \
+    }                                                                  \
+    const Name##Impl* operator->() const {                             \
+      return impl_.get();                                              \
+    }                                                                  \
+    std::shared_ptr<Name##Impl> get() const {                          \
+      return impl_;                                                    \
+    }                                                                  \
+                                                                       \
+   private:                                                            \
+    std::shared_ptr<Name##Impl> impl_;                                 \
+  }

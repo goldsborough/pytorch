@@ -15,8 +15,8 @@ class Embedding : public torch::nn::CloneableModule<Embedding> {
 
   variable_list forward(variable_list) override;
 
-  TORCH_ATTR(int64_t, count);
-  TORCH_ATTR(int64_t, dimension);
-  TORCH_ATTR(Variable, table);
+  TORCH_ARG(int64_t, count);
+  TORCH_ARG(int64_t, dimension);
+  TORCH_ARG(Variable, table);
 };
 }} // namespace torch::nn

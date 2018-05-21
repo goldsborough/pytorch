@@ -5,15 +5,16 @@
 #include <cmath>
 #include <cstdint>
 
-namespace torch { namespace nn {
+namespace torch {
+namespace nn {
 
-Linear::Linear(size_t features_in, size_t features_out)
-    : in_(features_in), out_(features_out) {}
+LinearOptions::LinearOptions(int64_t in, int64_t out) : in_(in), out_(out) {}
 
-void Linear::reset() {
-  weight_ = add(Var(at::CPU(at::kFloat).empty({out_, in_})), "weight");
-  if (with_bias_) {
-    bias_ = add(Var(at::CPU(at::kFloat).empty(out_)), "bias");
+LinearImpl::LinearImpl(LinearOptions options) : options_(std::move(options)) {
+  weight_ = add(
+      Var(at::CPU(at::kFloat).empty({options_.out_, options_.in_})), "weight");
+  if (options_.with_bias_) {
+    bias_ = add(Var(at::CPU(at::kFloat).empty(options_.out_)), "bias");
   }
 
   const auto stdv = 1.0 / std::sqrt(weight_.size(1));
@@ -22,18 +23,24 @@ void Linear::reset() {
   }
 }
 
-variable_list Linear::forward(variable_list input) {
+variable_list LinearImpl::forward(variable_list input) {
   auto x = input[0];
-  if (x.ndimension() == 2 && with_bias_) {
+  if (x.ndimension() == 2 && options_.with_bias_) {
     // Fused op is marginally faster
     AT_ASSERT(x.size(1) == weight_.size(1));
     return variable_list({at::addmm(bias_, x, weight_.t())});
   }
 
   auto output = x.matmul(weight_.t());
-  if (with_bias_) {
+  if (options_.with_bias_) {
     output += bias_;
   }
   return variable_list({output});
 }
-}} // namespace torch::nn
+
+const LinearOptions& LinearImpl::options() const noexcept {
+  return options_;
+}
+
+} // namespace nn
+} // namespace torch

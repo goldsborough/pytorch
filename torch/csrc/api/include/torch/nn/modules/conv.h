@@ -17,18 +17,18 @@ class Conv : public torch::nn::CloneableModule<Derived> {
 
   void reset() override;
 
-  TORCH_ATTR(int64_t, input_channels);
-  TORCH_ATTR(int64_t, output_channels);
-  TORCH_ATTR(ExpandingArray<D>, kernel_size);
-  TORCH_ATTR(ExpandingArray<D>, stride) = 1;
-  TORCH_ATTR(ExpandingArray<D>, padding) = 0;
-  TORCH_ATTR(ExpandingArray<D>, dilation) = 1;
-  TORCH_ATTR(ExpandingArray<D>, output_padding) = 0;
-  TORCH_ATTR(bool, transposed) = false;
-  TORCH_ATTR(bool, with_bias) = true;
-  TORCH_ATTR(int64_t, groups) = 1;
-  TORCH_ATTR(Variable, weight);
-  TORCH_ATTR(Variable, bias);
+  TORCH_ARG(int64_t, input_channels);
+  TORCH_ARG(int64_t, output_channels);
+  TORCH_ARG(ExpandingArray<D>, kernel_size);
+  TORCH_ARG(ExpandingArray<D>, stride) = 1;
+  TORCH_ARG(ExpandingArray<D>, padding) = 0;
+  TORCH_ARG(ExpandingArray<D>, dilation) = 1;
+  TORCH_ARG(ExpandingArray<D>, output_padding) = 0;
+  TORCH_ARG(bool, transposed) = false;
+  TORCH_ARG(bool, with_bias) = true;
+  TORCH_ARG(int64_t, groups) = 1;
+  TORCH_ARG(Variable, weight);
+  TORCH_ARG(Variable, bias);
 };
 
 #define CONV_D(dimensions)                                                     \

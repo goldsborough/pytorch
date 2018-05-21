@@ -39,11 +39,11 @@ class RNNBase : public CloneableModule<Derived> {
   void to(at::ScalarType scalar_type) override;
   void to(at::Backend backend) override;
 
-  TORCH_ATTR(int64_t, input_size);
-  TORCH_ATTR(int64_t, hidden_size);
-  TORCH_ATTR(int64_t, layers) = 1;
-  TORCH_ATTR(bool, with_bias) = true;
-  TORCH_ATTR(double, dropout) = 0.0;
+  TORCH_ARG(int64_t, input_size);
+  TORCH_ARG(int64_t, hidden_size);
+  TORCH_ARG(int64_t, layers) = 1;
+  TORCH_ARG(bool, with_bias) = true;
+  TORCH_ARG(double, dropout) = 0.0;
 
  protected:
   virtual variable_list cell_forward(variable_list, int64_t layer) = 0;
@@ -101,7 +101,7 @@ class RNN : public RNNBase<RNN> {
   RNN& relu();
   RNN& tanh();
 
-  TORCH_ATTR(Activation, activation) = Activation::Tanh;
+  TORCH_ARG(Activation, activation) = Activation::Tanh;
 
  private:
   using ActivationFunction = std::function<Variable(Variable)>;

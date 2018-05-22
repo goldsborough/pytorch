@@ -61,7 +61,7 @@ TEST_CASE("module/zero-grad") {
   auto module = Linear(3, 4).build();
   auto weight = Var(at::ones(at::CPU(at::kFloat), {8, 3}));
   auto loss = module->forward({weight}).front().sum();
-  backward(loss);
+  loss.backward();
   for (auto& parameter : module->parameters()) {
     Variable grad = parameter.second.grad();
     REQUIRE(grad.defined());

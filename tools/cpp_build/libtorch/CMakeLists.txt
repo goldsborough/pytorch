@@ -216,6 +216,7 @@ set(TORCH_SRCS
 if (NOT NO_API)
   list(APPEND TORCH_SRCS
     ${TORCH_SRC_DIR}/csrc/api/src/detail.cpp
+    ${TORCH_SRC_DIR}/csrc/api/src/nn/cursor.cpp
     ${TORCH_SRC_DIR}/csrc/api/src/nn/module.cpp
     ${TORCH_SRC_DIR}/csrc/api/src/nn/modules/batchnorm.cpp
     ${TORCH_SRC_DIR}/csrc/api/src/nn/modules/conv.cpp
@@ -322,6 +323,7 @@ if (NOT NO_API)
 
   add_executable(test_api
     ${TORCH_API_TEST_DIR}/container.cpp
+    ${TORCH_API_TEST_DIR}/cursor.cpp
     ${TORCH_API_TEST_DIR}/integration.cpp
     ${TORCH_API_TEST_DIR}/main.cpp
     ${TORCH_API_TEST_DIR}/misc.cpp

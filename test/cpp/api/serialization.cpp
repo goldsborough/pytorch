@@ -248,11 +248,11 @@ TEST_CASE("serialization") {
     load(ss, optim3_2);
     step(optim3_2, model3);
 
-    auto param1 = model1->parameters();
-    auto param2 = model2->parameters();
-    auto param3 = model3->parameters();
+    auto param1 = model1->parameters2();
+    auto param2 = model2->parameters2();
+    auto param3 = model3->parameters2();
     for (auto& p : param1) {
-      auto name = p.first;
+      auto& name = p.key;
       // Model 1 and 3 should be the same
       REQUIRE(param1[name].norm().toCFloat() == param3[name].norm().toCFloat());
       REQUIRE(param1[name].norm().toCFloat() != param2[name].norm().toCFloat());

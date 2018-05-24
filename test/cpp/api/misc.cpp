@@ -19,7 +19,7 @@ TEST_CASE("misc") {
     Variable s = y.sum();
 
     backward(s);
-    REQUIRE(!model->parameters()["weight"].grad().defined());
+    REQUIRE(!model->parameters2().get("weight").grad().defined());
   }
 
   SECTION("CPU random seed") {

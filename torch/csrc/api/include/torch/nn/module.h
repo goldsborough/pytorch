@@ -1,6 +1,7 @@
 #pragma once
 
 #include <torch/detail/ordered_dict.h>
+#include <torch/nn/cursor.h>
 #include "torch/detail.h"
 
 #include <torch/csrc/autograd/variable.h>
@@ -11,6 +12,13 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+
+namespace torch {
+namespace detail {
+template <typename T>
+struct CursorBase;
+} // namespace detail
+} // namespace torch
 
 namespace torch {
 namespace nn {
@@ -33,8 +41,22 @@ class Module {
   virtual variable_list forward(variable_list) = 0;
   virtual std::shared_ptr<Module> clone() const;
 
-  std::map<std::string, Variable> parameters() const;
-  Variable& param(std::string const&);
+  /// Provides a means to traverse the `Module` tree.
+  ModuleCursor modules();
+  ConstModuleCursor modules() const;
+
+  /// Traverses the (immediate) children of the `Module`.
+  ModuleCursor children();
+  ConstModuleCursor children() const;
+
+  /// Provides a means to recursively access the parameters of the `Module`
+  /// tree.
+  ParameterCursor parameters2();
+  ConstParameterCursor parameters2() const;
+
+  /// Provides a means to recursively access the buffers of the `Module` tree.
+  BufferCursor buffers();
+  ConstBufferCursor buffers() const;
 
   /// Enables training mode.
   virtual void train();
@@ -65,21 +87,21 @@ class Module {
 
   template <class Archive>
   void save(Archive& ar) const {
-    auto params = parameters();
-    std::size_t size = params.size();
+    auto params = parameters2();
+    size_t size = params.count();
     ar(size);
     for (auto& p : params) {
-      ar(p.first, p.second);
+      ar(p.key, p.value);
     }
   }
 
   template <class Archive>
   void load(Archive& ar) {
-    auto params = parameters();
-    std::size_t size;
+    auto params = parameters2();
+    size_t size;
     ar(size);
     std::string name;
-    for (std::size_t i = 0; i < size; i++) {
+    for (size_t i = 0; i < size; i++) {
       ar(name);
       ar(params[name]);
     }
@@ -98,17 +120,16 @@ class Module {
   }
 
  private:
-  template <typename T>
-  using OrderedDict = torch::detail::OrderedDict<T>;
-
   template <typename Derived>
   friend class CloneableModule;
+  template <typename T>
+  friend struct detail::CursorBase;
 
   virtual void clone_(Module& other);
 
-  OrderedDict<autograd::Variable> parameters_;
-  OrderedDict<autograd::Variable> buffers_;
-  OrderedDict<std::shared_ptr<Module>> children_;
+  detail::OrderedDict<autograd::Variable> parameters_;
+  detail::OrderedDict<autograd::Variable> buffers_;
+  detail::OrderedDict<std::shared_ptr<Module>> children_;
 
   /// The module's name (e.g. "LSTM").
   mutable at::optional<std::string> name_;
@@ -135,7 +156,7 @@ class CloneableModule : public Module {
   std::shared_ptr<Derived> build() {
     auto module = std::make_shared<Derived>(static_cast<Derived&&>(*this));
     module->reset();
-    return std::move(module);
+    return module;
   }
 
   /// Performs a recursive "deep copy" of the `Module`, such that all parameters

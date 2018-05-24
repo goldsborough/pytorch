@@ -84,8 +84,8 @@ void RNNBase<Derived>::reset() {
   flatten_parameters_for_cudnn();
 
   auto stdv = 1.0 / std::sqrt(hidden_size_);
-  for (auto& p : this->parameters()) {
-    p.second.data().uniform_(-stdv, stdv);
+  for (auto& p : this->parameters2()) {
+    p->data().uniform_(-stdv, stdv);
   }
 }
 
@@ -161,9 +161,9 @@ void RNNBase<Derived>::flatten_parameters_for_cudnn() {
     return;
   }
   std::unordered_set<void*> unique_data_ptrs;
-  auto params = this->parameters();
+  auto params = this->parameters2();
   for (auto& p : params) {
-    unique_data_ptrs.insert(p.second.data().data_ptr());
+    unique_data_ptrs.insert(p->data().data_ptr());
   }
   // TODO PyTorch says:
   // If any parameters alias, we fall back to the slower, copying code path.
@@ -171,9 +171,9 @@ void RNNBase<Derived>::flatten_parameters_for_cudnn() {
   // a sufficient check, because overlapping parameter buffers that don't
   // completely
   // alias would break the assumptions of the uniqueness check in
-  // Module.named_parameters().
+  // Module.named_parameters2().
   // But I'm not sure if this is the case for us
-  if (unique_data_ptrs.size() != params.size()) {
+  if (unique_data_ptrs.size() != params.count()) {
     return;
   }
 
@@ -190,7 +190,7 @@ void RNNBase<Derived>::flatten_parameters_for_cudnn() {
         false); // batch_first and bidirectional, unsupported
   }
   for (auto& p : params) {
-    data_ptrs_.emplace_back(p.second.data().data_ptr());
+    data_ptrs_.emplace_back(p->data().data_ptr());
   }
 }
 
@@ -214,9 +214,9 @@ variable_list RNNBase<Derived>::CUDNN_forward(variable_list inputs) {
   auto dropout_state = x.type().tensor();
 
   std::vector<void*> weight_data_ptrs;
-  auto params = this->parameters();
+  auto params = this->parameters2();
   for (auto& p : params) {
-    weight_data_ptrs.emplace_back(p.second.data().data_ptr());
+    weight_data_ptrs.emplace_back(p->data().data_ptr());
   }
   if (weight_data_ptrs != data_ptrs_) {
     std::cerr

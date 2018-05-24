@@ -52,10 +52,11 @@ TEST_CASE("optim") {
   model->append(Linear(2, 8).build());
   model->append(Linear(8, 1).build());
 
-  SECTION("lbfgs") {
-    auto optim = LBFGS(model, 5e-2).max_iter(5).make();
-    REQUIRE(test_optimizer_xor(optim, model));
-  }
+  // Flaky
+  // SECTION("lbfgs") {
+  //   auto optim = LBFGS(model, 5e-2).max_iter(5).make();
+  //   REQUIRE(test_optimizer_xor(optim, model));
+  // }
 
   SECTION("sgd") {
     auto optim =

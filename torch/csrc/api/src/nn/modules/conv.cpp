@@ -54,8 +54,8 @@ void Conv<D, Derived>::reset() {
       input_channels_,
       std::multiplies<int64_t>{});
   const auto stdv = 1.0 / std::sqrt(number_of_features);
-  for (auto& p : this->parameters()) {
-    p.second.data().uniform_(-stdv, stdv);
+  for (auto& p : this->parameters2()) {
+    p->data().uniform_(-stdv, stdv);
   }
 }
 

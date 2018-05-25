@@ -290,6 +290,23 @@ else()
   set(ATen_CPU_SRCS)
 endif()
 
+target_compile_options(ATen_cpu
+  PRIVATE
+  -Wall
+  -Wextra
+  -fexceptions
+  -Wno-missing-field-initializers
+  -Wno-type-limits
+  -Wno-unused-parameter
+  -Wno-unknown-warning-option
+  -Wno-unknown-pragmas)
+
+if ($ENV{WERROR})
+  target_compile_options(ATen_cpu PRIVATE -Werror)
+endif()
+endfunction()
+
+
 if(NOT NO_CUDA OR WITH_ROCM)
   if(AT_LINK_STYLE STREQUAL "INTERFACE")
     # Source code can't be added to an interface library, so it is

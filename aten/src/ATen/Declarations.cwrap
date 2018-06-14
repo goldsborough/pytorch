@@ -2,7 +2,7 @@
   name: storageOffset
   python_name: storage_offset
   cpu_half: True
-  auto_gpu: False
+  device_guard: False
   return: long
   arguments:
     - THTensor* self
@@ -11,7 +11,7 @@
   name: nDimension
   python_name: ndimension
   cpu_half: True
-  auto_gpu: False
+  device_guard: False
   return: long
   arguments:
     - THTensor* self
@@ -32,7 +32,7 @@
   return: long
   cname: nElement
   cpu_half: True
-  auto_gpu: False
+  device_guard: False
   variants:
     - method
     - function
@@ -43,7 +43,7 @@
   name: set_
   cname: set
   cpu_half: True
-  auto_gpu: False
+  device_guard: False
   return: argument 0
   options:
     - cname: set
@@ -90,7 +90,7 @@
   name: isContiguous
   python_name: is_contiguous
   cpu_half: True
-  auto_gpu: False
+  device_guard: False
   return: bool
   arguments:
     - THTensor* self
@@ -99,7 +99,7 @@
   name: isSetTo
   python_name: is_set_to
   cpu_half: True
-  auto_gpu: False
+  device_guard: False
   return: bool
   arguments:
     - THTensor* self
@@ -178,7 +178,7 @@
 [[
   name: view
   cname: newView
-  auto_gpu: False
+  device_guard: False
   return: THTensor*
   arguments:
     - THTensor* self
@@ -285,7 +285,7 @@
 [[
   name: unfold
   cpu_half: True
-  auto_gpu: False
+  device_guard: False
   return: argument 0
   arguments:
     - arg: THTensor* result
@@ -386,7 +386,7 @@
 [[
   name: data_ptr
   with_gil: True
-  auto_gpu: False
+  device_guard: False
   return: void*
   cpu_half: True
   cname: data
@@ -1045,7 +1045,7 @@
 [[
   name: getDevice
   python_name: get_device
-  auto_gpu: False
+  device_guard: False
   backends:
     - CUDA
   aten_sparse: True

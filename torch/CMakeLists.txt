@@ -386,3 +386,6 @@ if (TORCH_BUILD_TEST)
     target_link_libraries(test_api torch)
   endif()
 endif()
+
+add_executable(api_example ${TORCH_SRC_DIR}/csrc/api/examples/lsgan.cpp)
+target_link_libraries(api_example torch)

@@ -12,7 +12,8 @@ echo "Building Caffe2"
 mkdir -p $CAFFE2_BUILDPATH
 pushd $CAFFE2_BUILDPATH
 
-cmake -DUSE_CUDA=$USE_CUDA \
+cmake -DUSE_CUDA:BOOL=$USE_CUDA \
+      -DUSE_OPENMP:BOOL=${USE_OPENMP:ON} \
       -DBUILD_CAFFE2=OFF \
       -DBUILD_ATEN=ON \
       -DBUILD_PYTHON=OFF \

@@ -200,12 +200,15 @@ set(TORCH_SRCS
   ${TORCH_SRC_DIR}/csrc/autograd/functions/utils.cpp
   ${TORCH_SRC_DIR}/csrc/autograd/functions/special.cpp
   ${TORCH_SRC_DIR}/csrc/autograd/functions/basic_ops.cpp
+  ${TORCH_SRC_DIR}/csrc/autograd/functions/comm.cpp
   ${TORCH_SRC_DIR}/csrc/autograd/functions/accumulate_grad.cpp
   ${TORCH_SRC_DIR}/csrc/autograd/functions/tensor.cpp
   ${TORCH_SRC_DIR}/csrc/autograd/variable.cpp
   ${TORCH_SRC_DIR}/csrc/autograd/engine.cpp
+  ${TORCH_SRC_DIR}/csrc/cuda/comm.cpp
   ${TORCH_SRC_DIR}/csrc/assertions.cpp
   ${TORCH_SRC_DIR}/csrc/utils/variadic.cpp
+  ${TORCH_SRC_DIR}/csrc/utils/tensor_flatten.cpp
   ${TORCH_SRC_DIR}/csrc/jit/generated/aten_dispatch.cpp
   ${TORCH_SRC_DIR}/csrc/jit/generated/aten_schema.cpp
   ${TORCH_SRC_DIR}/csrc/jit/variable_flags.cpp
@@ -288,6 +291,8 @@ target_compile_options(torch
   -Wno-missing-braces # This warning is buggy
   -Wno-unknown-pragmas)
 
+target_compile_options(torch INTERFACE -fopenmp)
+
 if ($ENV{WERROR})
   target_compile_options(torch PRIVATE -Werror)
 endif()
@@ -297,6 +302,7 @@ target_link_libraries(torch
   ${CAFFE2_LIBRARY}
   ${PROTOBUF_LIBRARY}
   protobuf-nanopb
+  -fopenmp
 )
 if(USE_CUDA)
   if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
@@ -361,27 +367,28 @@ if (TORCH_BUILD_TEST)
 
     add_executable(test_api
       ${TORCH_API_TEST_DIR}/any.cpp
-      ${TORCH_API_TEST_DIR}/modules.cpp
       ${TORCH_API_TEST_DIR}/cursor.cpp
       ${TORCH_API_TEST_DIR}/integration.cpp
       ${TORCH_API_TEST_DIR}/main.cpp
       ${TORCH_API_TEST_DIR}/misc.cpp
       ${TORCH_API_TEST_DIR}/module.cpp
+      ${TORCH_API_TEST_DIR}/modules.cpp
       ${TORCH_API_TEST_DIR}/optim.cpp
-      ${TORCH_API_TEST_DIR}/sequential.cpp
+      ${TORCH_API_TEST_DIR}/parallel.cpp
       ${TORCH_API_TEST_DIR}/rnn.cpp
+      ${TORCH_API_TEST_DIR}/sequential.cpp
       ${TORCH_API_TEST_DIR}/serialization.cpp
       ${TORCH_API_TEST_DIR}/static.cpp
-      ${TORCH_API_TEST_DIR}/tensor.cpp
       ${TORCH_API_TEST_DIR}/tensor_cuda.cpp
+      ${TORCH_API_TEST_DIR}/tensor.cpp
       # Temporary until ATen tests are built with Caffe2
       ${TORCH_API_TEST_DIR}/tensor_options.cpp
       ${TORCH_API_TEST_DIR}/tensor_options_cuda.cpp
     )
 
-      target_include_directories(test_api
-        PUBLIC
-        "${TORCH_SRC_DIR}/../third_party/catch/single_include")
+    target_include_directories(test_api
+      PUBLIC
+      "${TORCH_SRC_DIR}/../third_party/catch/single_include")
 
     target_link_libraries(test_api torch)
   endif()

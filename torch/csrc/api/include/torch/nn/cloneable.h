@@ -44,10 +44,12 @@ class Cloneable : public Module {
     copy->children_.clear();
     copy->reset();
     for (const auto& parameter : parameters_) {
-      copy->parameters_[parameter.key].data().copy_(parameter->data());
+      copy->parameters_[parameter.key].data().copy_(
+          parameter->data(), /*non_blocking=*/true);
     }
     for (const auto& buffer : buffers_) {
-      copy->buffers_[buffer.key].data().copy_(buffer->data());
+      copy->buffers_[buffer.key].data().copy_(
+          buffer->data(), /*non_blocking=*/true);
     }
     for (const auto& child : children_) {
       copy->children_[child.key]->clone_(*child.value);

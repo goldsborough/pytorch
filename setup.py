@@ -813,6 +813,7 @@ main_sources = [
     "torch/csrc/autograd/generated/python_functions.cpp",
     "torch/csrc/autograd/generated/python_nn_functions.cpp",
     "torch/csrc/autograd/functions/basic_ops.cpp",
+    "torch/csrc/autograd/functions/comm.cpp",
     "torch/csrc/autograd/functions/tensor.cpp",
     "torch/csrc/autograd/functions/accumulate_grad.cpp",
     "torch/csrc/autograd/functions/special.cpp",

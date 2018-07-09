@@ -25,6 +25,18 @@
 namespace torch {
 namespace nn {
 namespace parallel {
+namespace detail {
+std::vector<Device> all_available_devices() {
+  const auto device_count = torch::cuda::device_count();
+  AT_CHECK(device_count > 0, "Expected at least one CUDA device");
+  std::vector<Device> devices;
+  devices.reserve(device_count);
+  for (size_t index = 0; index < device_count; ++index) {
+    devices.emplace_back(kCUDA, index);
+  }
+  return devices;
+}
+} // namespace detail
 
 /// Replicates a module on the given list of devices.
 /// A replica is created by calling `clone()` on the module. For this, the
@@ -132,13 +144,7 @@ Tensor data_parallel(
     at::optional<Device> output_device = at::nullopt,
     int64_t dim = 0) {
   if (!devices) {
-    const auto device_count = torch::cuda::device_count();
-    AT_CHECK(device_count > 0, "Expected at least one CUDA device");
-    devices.emplace();
-    devices->reserve(device_count);
-    for (size_t index = 0; index < device_count; ++index) {
-      devices->emplace_back(kCUDA, index);
-    }
+    devices = detail::all_available_devices();
   }
   if (!output_device) {
     output_device = devices->front();

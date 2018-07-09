@@ -55,7 +55,7 @@ class Sequential : public Cloneable<Sequential> {
       input = (*iterator)->forward(std::move(input));
     }
 
-    // Check the return value and give a nice error message if the requsted
+    // Check the return value and give a nice error message if the requested
     // return type was incorrect.
     if (auto* return_value = input.template try_get<ReturnType>()) {
       return std::move(*return_value);

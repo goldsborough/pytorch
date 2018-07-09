@@ -2,6 +2,7 @@
 
 #include <torch/csrc/autograd/functions/comm.h>
 #include <torch/nn/module.h>
+#include <torch/nn/modules/data_parallel.h>
 #include <torch/nn/modules/linear.h>
 #include <torch/nn/parallel/data_parallel.h>
 #include <torch/nn/pimpl.h>
@@ -176,4 +177,10 @@ TEST_CASE("Parallel/DataParallelUsesAllAvailableCUDADevices", "[cuda]") {
   for (size_t i = 0; i < device_count; ++i) {
     REQUIRE(output[i].toCInt() == i);
   }
+}
+
+TEST_CASE("Parallel/DataParallelModule", "[cuda]") {
+  Linear linear(3, 4);
+  DataParallel data_parallel(linear);
+  std::cout << data_parallel->forward(torch::ones({2, 3})) << std::endl;
 }

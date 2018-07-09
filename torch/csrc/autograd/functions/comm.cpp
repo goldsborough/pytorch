@@ -41,8 +41,13 @@ variable_list Scatter::apply(const variable_list& inputs) {
   auto device_indices = fmap(devices_, [](const at::Device& device) -> int64_t {
     return device.index();
   });
-  auto tensors =
+  std::vector<at::Tensor> tensors;
+#ifdef USE_CUDA
+  tensors =
       torch::cuda::scatter(input, device_indices, chunk_sizes_, dim_, streams_);
+#else
+  AT_ERROR("Scatter is only supported in CUDA environments");
+#endif
 
   std::vector<Variable> variables;
   for (auto& tensor : tensors) {
@@ -109,10 +114,15 @@ variable_list Gather::apply(const variable_list& inputs) {
     grad_fn->set_next_edges(collect_next_edges(inputs));
   }
 
+  Variable variable;
+#ifdef USE_CUDA
   // This is special logic for torch::cuda::gather!
   const auto destination_index =
       destination_device_.is_cpu() ? -1 : destination_device_.index();
-  Variable variable = torch::cuda::gather(tensors, dim_, destination_index);
+  variable = torch::cuda::gather(tensors, dim_, destination_index);
+#else
+  AT_ERROR("Gather is only supported in CUDA environments");
+#endif
 
   set_history(variable, grad_fn);
 

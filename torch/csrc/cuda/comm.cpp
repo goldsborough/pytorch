@@ -2,12 +2,11 @@
 
 #include <torch/csrc/cuda/device_set.h>
 #include <torch/csrc/utils/tensor_flatten.h>
+#include <torch/csrc/utils/auto_stream.h>
 
 #ifdef USE_NCCL
 #include <torch/csrc/cuda/nccl.h>
 #endif
-
-#include <torch/csrc/utils/auto_stream.h>
 
 #include <THC/THC.h>
 

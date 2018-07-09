@@ -3,12 +3,12 @@
 #include <torch/csrc/autograd/function.h>
 #include <torch/csrc/autograd/variable.h>
 
-#include <THC/THC.h>
-
 #include <ATen/ATen.h>
 
 #include <cstddef>
 #include <vector>
+
+struct THCStream;
 
 namespace torch {
 namespace autograd {

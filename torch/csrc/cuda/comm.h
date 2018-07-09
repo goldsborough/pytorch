@@ -1,12 +1,12 @@
 #pragma once
 
-#include <THC/THC.h>
-
 #include <ATen/ATen.h>
 #include <ATen/optional.h>
 
 #include <cstddef>
 #include <vector>
+
+struct THCStream;
 
 namespace torch { namespace cuda {
 

@@ -205,7 +205,6 @@ set(TORCH_SRCS
   ${TORCH_SRC_DIR}/csrc/autograd/functions/tensor.cpp
   ${TORCH_SRC_DIR}/csrc/autograd/variable.cpp
   ${TORCH_SRC_DIR}/csrc/autograd/engine.cpp
-  ${TORCH_SRC_DIR}/csrc/cuda/comm.cpp
   ${TORCH_SRC_DIR}/csrc/assertions.cpp
   ${TORCH_SRC_DIR}/csrc/utils/variadic.cpp
   ${TORCH_SRC_DIR}/csrc/utils/tensor_flatten.cpp
@@ -245,6 +244,10 @@ set(TORCH_SRCS
   ${TORCH_SRC_DIR}/csrc/onnx/onnx.cpp
   ${TORCH_SRC_DIR}/csrc/onnx/onnx.npb.cpp
   ${TORCH_SRC_DIR}/csrc/torch.cpp)
+
+if (USE_CUDA)
+  list(APPEND TORCH_SRCS ${TORCH_SRC_DIR}/csrc/cuda/comm.cpp)
+endif()
 
 if (NOT NO_API)
   list(APPEND TORCH_SRCS

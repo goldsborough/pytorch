@@ -8,8 +8,6 @@
 #include <torch/csrc/cuda/nccl.h>
 #endif
 
-#include <THC/THC.h>
-
 #include <ATen/ATen.h>
 #include <ATen/optional.h>
 
@@ -19,6 +17,18 @@
 namespace torch { namespace cuda {
 
 using namespace at;
+namespace {
+CUDAStream stream_or_default(
+    const at::optional<std::vector<at::CUDAStream>>& streams,
+    size_t stream_index,
+    size_t device_index) {
+  if (streams) {
+    return streams.value()[stream_index];
+  } else {
+    return at::globalContext().getCurrentCUDAStreamOnDevice(device_index);
+  }
+}
+} // namespace
 
 // Some operations can be performed more efficiently if we're handling tensors
 // of a single type only. Adding this logic directly in the loop makes it a bit
@@ -122,7 +132,7 @@ std::vector<at::Tensor> scatter(
     at::IntList devices,
     const at::optional<std::vector<int64_t>>& chunk_sizes,
     int64_t dim,
-    const at::optional<std::vector<THCStream*>>& streams) {
+    const at::optional<std::vector<at::CUDAStream>>& streams) {
   std::vector<at::Tensor> chunks;
   if (chunk_sizes) {
     const int64_t chunk_size_sum =
@@ -144,14 +154,12 @@ std::vector<at::Tensor> scatter(
   } else {
     chunks = tensor.chunk(/*chunks=*/devices.size(), /*dim=*/dim);
   }
-  auto* thc_state = at::globalContext().lazyInitCUDA();
   for (size_t chunk = 0; chunk < chunks.size(); ++chunk) {
     const int32_t device_index = devices[chunk];
     // We must set the current device before setting the current stream.
     const at::DeviceGuard device_guard({at::kCUDA, device_index});
-    const AutoStream stream_guard(
-        streams ? (*streams)[chunk]
-                : THCState_getStreamOnDevice(thc_state, device_index));
+    auto stream = stream_or_default(streams, chunk, device_index);
+    const AutoStream stream_guard(stream.internals());
     // Copy the chunk from its current device to its destination device, which
     // we set as the default device above, thus specified as -1.
     chunks[chunk] =

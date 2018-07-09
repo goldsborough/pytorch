@@ -27,10 +27,12 @@ void initCommMethods(PyObject *module) {
      at::optional<std::vector<int64_t>> chunk_sizes,
      int64_t dim,
      at::optional<py::object> py_streams) {
-     at::optional<std::vector<THCStream*>> streams;
+     at::optional<std::vector<at::CUDAStream>> streams;
      if (py_streams) {
        py::handle handle = *py_streams;
-       streams = THPUtils_PySequence_to_THCStreamList(handle.ptr());
+       streams = fmap(
+           THPUtils_PySequence_to_THCStreamList(handle.ptr()),
+           [](THCStream* stream) { return at::CUDAStream(stream); });
      }
      // Note: We're holding the GIL up to here.
      AutoNoGIL no_gil;

@@ -163,21 +163,17 @@ TEST_CASE("Parallel/DataParallelUsesAllAvailableCUDADevices", "[cuda]") {
   struct M : torch::nn::Cloneable<M> {
     void reset() override {}
     torch::Tensor forward(torch::Tensor input) {
-      devices->push_back(torch::DefaultTensorOptions::get().device());
-      return input;
+      return torch::tensor(torch::DefaultTensorOptions::get().device().index());
     }
-    std::shared_ptr<std::vector<torch::Device>> devices;
   };
 
   auto m = std::make_shared<M>();
-  m->devices = std::make_shared<std::vector<torch::Device>>();
-
   auto input = torch::ones({10, 3});
   auto output = parallel::data_parallel(m, input);
 
   const auto device_count = torch::cuda::device_count();
-  REQUIRE(m->devices->size() == device_count);
+  REQUIRE(output.numel() == device_count);
   for (size_t i = 0; i < device_count; ++i) {
-    REQUIRE(m->devices->at(i).index() == i);
+    REQUIRE(output[i].toCInt() == i);
   }
 }

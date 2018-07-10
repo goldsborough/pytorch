@@ -19,7 +19,11 @@ tensor_list2d broadcast_coalesced(at::TensorList tensors, at::IntList devices,
 std::vector<at::Tensor> scatter(
     const at::Tensor& tensor,
     at::IntList devices,
-    const at::optional<std::vector<int64_t>>& chunk_sizes = at::nullopt,
+
+
+
+    const
+    at::optional<  std::vector<int64_t>>& chunk_sizes = at::nullopt,
     int64_t dim = 0,
     const at::optional<std::vector<THCStream*>>& streams = at::nullopt);
 

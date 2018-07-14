@@ -1,15 +1,20 @@
+import copy
 import math
 import multiprocessing
 import socket
 import sys
 import tempfile
 import unittest
+
 from functools import wraps
 
 import torch
-import torch.distributed.c10d as c10d
+from torch import nn
+from torch.distributed import c10d
+from torch.nn.parallel import distributed_c10d
 
 from common import TestCase
+from common_cuda import TEST_MULTIGPU
 
 
 TIMEOUT_DEFAULT = 5
@@ -141,7 +146,7 @@ class RendezvousTCPTest(TestCase):
         self.assertEqual(b"value1", store0.get("key1"))
 
 
-class ProcessGroupGlooTest(TestCase):
+class MultiProcessTestCase(TestCase):
     MAIN_PROCESS_RANK = -1
 
     @staticmethod
@@ -165,10 +170,14 @@ class ProcessGroupGlooTest(TestCase):
                 fn = getattr(cls, attr)
                 setattr(cls, attr, cls.join_or_run(fn))
 
+    @property
+    def size(self):
+        raise NotImplementedError
+
     def setUp(self):
         self.rank = self.MAIN_PROCESS_RANK
-        self.size = 4
         self.file = tempfile.NamedTemporaryFile()
+        self.port = find_free_port()
         self.processes = [self._spawn_process(rank) for rank in range(int(self.size))]
 
     def tearDown(self):
@@ -194,6 +203,25 @@ class ProcessGroupGlooTest(TestCase):
         timeout = get_timeout(self.id())
         for p in self.processes:
             p.join(timeout)
+
+    def gpus_for_rank(self):
+        """Multigpu tests are designed to simulate the multi nodes with multi
+        GPUs on each node. Nccl backend requires equal #GPUs in each process.
+        On a single node, all visible GPUs are evenly
+        divided to subsets, each process only uses a subset.
+        """
+        visible_devices = list(range(torch.cuda.device_count()))
+        gpus_per_process = torch.cuda.device_count() // self.size
+        gpus_for_rank = []
+        for rank in range(self.size):
+            gpus_for_rank.append(visible_devices[rank * gpus_per_process: (rank + 1) * gpus_per_process])
+        return gpus_for_rank
+
+
+class ProcessGroupGlooTest(MultiProcessTestCase):
+    @property
+    def size(self):
+        return 4
 
     def opts(self):
         opts = c10d.ProcessGroupGloo.Options()
@@ -278,18 +306,12 @@ class ProcessGroupNCCLTest(TestCase):
         self.rank = self.MAIN_PROCESS_RANK
         self.size = 1
         self.file = tempfile.NamedTemporaryFile()
-
-        if not torch.cuda.is_available():
-            raise unittest.SkipTest("torch.cuda not available, skipping test")
-
         self.num_gpus = torch.cuda.device_count()
-
-        if self.num_gpus < 2:
-            raise unittest.SkipTest("Requires at least 2 GPUs, skipping test")
 
     def tearDown(self):
         self.file.close()
 
+    @unittest.skipIf(not TEST_MULTIGPU, "only one GPU detected")
     def test_broadcast_ops(self):
         store = c10d.FileStore(self.file.name)
         pg = c10d.ProcessGroupNCCL(store, self.rank, self.size)
@@ -312,6 +334,7 @@ class ProcessGroupNCCLTest(TestCase):
             for i in range(self.num_gpus):
                 self.assertEqual(tensors[i], tensors[rt])
 
+    @unittest.skipIf(not TEST_MULTIGPU, "only one GPU detected")
     def test_allreduce_ops(self):
         store = c10d.FileStore(self.file.name)
         pg = c10d.ProcessGroupNCCL(store, self.rank, self.size)
@@ -365,6 +388,90 @@ class ProcessGroupNCCLTest(TestCase):
 
         for i in range(self.num_gpus):
             self.assertEqual(torch.Tensor([self.num_gpus]), tensors[i])
+
+
+class Net(nn.Module):
+    def __init__(self):
+        super(Net, self).__init__()
+        self.fc1 = nn.Linear(2, 10, bias=False)
+        self.fc2 = nn.Linear(10, 50, bias=False)
+        self.fc3 = nn.Linear(50, 4, bias=False)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.relu(self.fc1(x))
+        x = self.relu(self.fc2(x))
+        x = self.fc3(x)
+        return F.softmax(x, dim=1)
+
+
+class DistributedDataParallelTest(MultiProcessTestCase):
+    @property
+    def size(self):
+        return torch.cuda.device_count()
+
+    @unittest.skipIf(not TEST_MULTIGPU, "only one GPU detected")
+    def test_gloo_backend(self):
+        store = c10d.TCPStore('localhost', self.port, self.rank == 0)
+        opts = c10d.ProcessGroupGloo.Options()
+        opts.devices = [c10d.ProcessGroupGloo.create_tcp_device(interface="lo")]
+        process_group = c10d.ProcessGroupGloo(store, self.rank, self.size, opts)
+
+        model = Net()
+        gpus = self.gpus_for_rank()[self.rank]
+
+        # single gpu training setup
+        model = copy.deepcopy(model)
+        print(model, gpus[0])
+        model.cuda(device=gpus[0])
+        print(model)
+
+        # DDP training setup
+        # ddp_model = distributed_c10d._DistributedDataParallelC10d(
+        #     copy.deepcopy(model),
+        #     process_group,
+        #     device_ids=gpus)
+        # ddp_model.cuda(gpus[0])
+        #
+        # local_batch_size = len(gpus)
+        # global_batch_size = self.size * local_batch_size
+        # criterion = nn.MSELoss()
+        # input_cpu = torch.randn(global_batch_size, 4)
+        # target_cpu = torch.randn(global_batch_size, 4)
+
+        # input = input_cpu.cuda(gpus[0])
+        # target = target_cpu.cuda(gpus[0])
+        #
+        # def step_model(model, input, target, criterion):
+        #         model.train()
+        #         output = model(input_var)
+        #         loss = criterion(output, target)
+        #         loss.backward()
+        #
+        # for _ in range(2):
+        #     # step single node model
+        #     step_model(model, input, target, criterion)
+        #
+        #     # step ddp model
+        #     step_model(ddp_model,
+        #                input[rank * local_batch_size: (rank + 1) * local_batch_size],
+        #                target[rank * local_batch_size: (rank + 1) * local_batch_size],
+        #                criterion)
+        #
+        #     # Update weights and run a second iteration to shake out errors
+        #     for param in model.parameters():
+        #         param.data += param.grad
+        #         param.grad = None
+        #     for param in ddp_model.parameters():
+        #         param.data += param.grad
+        #         param.grad = None
+        #
+        #     self.assertEqual(len(model.parameters()), len(ddp_model.parameters()))
+        #     for i, j in zip(model.parameters(), ddp_model.parameters()):
+        #         self.assertEqual(i, j)
+        #
+        #     # Shuffle the input so that DDP input is different
+        #     input = input[torch.randperm(batch_size)]
 
 
 if __name__ == '__main__':

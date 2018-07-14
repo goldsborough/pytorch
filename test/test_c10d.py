@@ -10,15 +10,35 @@ from functools import wraps
 
 import torch
 from torch import nn
+import torch.nn.functional as F
 from torch.distributed import c10d
 from torch.nn.parallel import distributed_c10d
 
 from common import TestCase
-from common_cuda import TEST_MULTIGPU
+
+
+if not c10d.is_available():
+    print('c10d not available, skipping tests')
+    sys.exit(0)
 
 
 TIMEOUT_DEFAULT = 5
 TIMEOUT_OVERRIDE = {}
+
+SKIP_IF_NOT_MULTIGPU = 75
+
+
+def skip_if_not_multigpu(func):
+    """Multi-GPU tests requires at least 2 GPUS. Skip if this is not met"""
+    func.skip_if_not_multigpu = True
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if torch.cuda.is_available() and torch.cuda.device_count() >= 2:
+            return func(*args, **kwargs)
+        sys.exit(SKIP_IF_NOT_MULTIGPU)
+
+    return wrapper
 
 
 def get_timeout(test_id):
@@ -34,9 +54,18 @@ def find_free_port():
     return sockname[1]
 
 
-if not c10d.is_available():
-    print('c10d not available, skipping tests')
-    sys.exit(0)
+def gpus_for_rank(size):
+    """Multigpu tests are designed to simulate the multi nodes with multi
+    GPUs on each node. Nccl backend requires equal #GPUs in each process.
+    On a single node, all visible GPUs are evenly
+    divided to subsets, each process only uses a subset.
+    """
+    visible_devices = list(range(torch.cuda.device_count()))
+    gpus_per_process = torch.cuda.device_count() // size
+    gpus_for_rank = []
+    for rank in range(size):
+        gpus_for_rank.append(visible_devices[rank * gpus_per_process: (rank + 1) * gpus_per_process])
+    return gpus_for_rank
 
 
 class StoreTestBase(object):
@@ -149,6 +178,10 @@ class RendezvousTCPTest(TestCase):
 class MultiProcessTestCase(TestCase):
     MAIN_PROCESS_RANK = -1
 
+    @property
+    def size(self):
+        return 4
+
     @staticmethod
     def join_or_run(fn):
         @wraps(fn)
@@ -169,10 +202,6 @@ class MultiProcessTestCase(TestCase):
             if attr.startswith('test'):
                 fn = getattr(cls, attr)
                 setattr(cls, attr, cls.join_or_run(fn))
-
-    @property
-    def size(self):
-        raise NotImplementedError
 
     def setUp(self):
         self.rank = self.MAIN_PROCESS_RANK
@@ -204,25 +233,14 @@ class MultiProcessTestCase(TestCase):
         for p in self.processes:
             p.join(timeout)
 
-    def gpus_for_rank(self):
-        """Multigpu tests are designed to simulate the multi nodes with multi
-        GPUs on each node. Nccl backend requires equal #GPUs in each process.
-        On a single node, all visible GPUs are evenly
-        divided to subsets, each process only uses a subset.
-        """
-        visible_devices = list(range(torch.cuda.device_count()))
-        gpus_per_process = torch.cuda.device_count() // self.size
-        gpus_for_rank = []
-        for rank in range(self.size):
-            gpus_for_rank.append(visible_devices[rank * gpus_per_process: (rank + 1) * gpus_per_process])
-        return gpus_for_rank
+        first_process = self.processes[0]
+        for p in self.processes:
+            self.assertEqual(p.exitcode, first_process.exitcode)
+        if first_process.exitcode == SKIP_IF_NOT_MULTIGPU:
+            raise unittest.SkipTest("Need at least 2 CUDA devices")
 
 
 class ProcessGroupGlooTest(MultiProcessTestCase):
-    @property
-    def size(self):
-        return 4
-
     def opts(self):
         opts = c10d.ProcessGroupGloo.Options()
         opts.timeout = 1.0
@@ -311,7 +329,7 @@ class ProcessGroupNCCLTest(TestCase):
     def tearDown(self):
         self.file.close()
 
-    @unittest.skipIf(not TEST_MULTIGPU, "only one GPU detected")
+    @skip_if_not_multigpu
     def test_broadcast_ops(self):
         store = c10d.FileStore(self.file.name)
         pg = c10d.ProcessGroupNCCL(store, self.rank, self.size)
@@ -334,7 +352,7 @@ class ProcessGroupNCCLTest(TestCase):
             for i in range(self.num_gpus):
                 self.assertEqual(tensors[i], tensors[rt])
 
-    @unittest.skipIf(not TEST_MULTIGPU, "only one GPU detected")
+    @skip_if_not_multigpu
     def test_allreduce_ops(self):
         store = c10d.FileStore(self.file.name)
         pg = c10d.ProcessGroupNCCL(store, self.rank, self.size)
@@ -406,73 +424,68 @@ class Net(nn.Module):
 
 
 class DistributedDataParallelTest(MultiProcessTestCase):
+
     @property
     def size(self):
-        return torch.cuda.device_count()
+        return 2
 
-    @unittest.skipIf(not TEST_MULTIGPU, "only one GPU detected")
     def test_gloo_backend(self):
+        gpus = gpus_for_rank(self.size)[self.rank]
+
+        # cpu training setup
+        model = Net()
+
+        # DDP training setup
         store = c10d.TCPStore('localhost', self.port, self.rank == 0)
         opts = c10d.ProcessGroupGloo.Options()
         opts.devices = [c10d.ProcessGroupGloo.create_tcp_device(interface="lo")]
         process_group = c10d.ProcessGroupGloo(store, self.rank, self.size, opts)
+        ddp_model = distributed_c10d._DistributedDataParallelC10d(
+            copy.deepcopy(model).cuda(gpus[0]),
+            process_group,
+            device_ids=gpus)
 
-        model = Net()
-        gpus = self.gpus_for_rank()[self.rank]
+        model.cuda(gpus[0])
 
-        # single gpu training setup
-        model = copy.deepcopy(model)
-        print(model, gpus[0])
-        model.cuda(device=gpus[0])
-        print(model)
+        local_batch_size = len(gpus)
+        global_batch_size = self.size * local_batch_size
+        criterion = nn.MSELoss()
+        input = torch.randn(global_batch_size, 2).cuda(gpus[0])
+        target = torch.randn(global_batch_size, 4).cuda(gpus[0])
 
-        # DDP training setup
-        # ddp_model = distributed_c10d._DistributedDataParallelC10d(
-        #     copy.deepcopy(model),
-        #     process_group,
-        #     device_ids=gpus)
-        # ddp_model.cuda(gpus[0])
-        #
-        # local_batch_size = len(gpus)
-        # global_batch_size = self.size * local_batch_size
-        # criterion = nn.MSELoss()
-        # input_cpu = torch.randn(global_batch_size, 4)
-        # target_cpu = torch.randn(global_batch_size, 4)
+        def step_model(model, input, target, criterion):
+            model.train()
+            output = model(input)
+            loss = criterion(output, target)
+            loss.backward()
 
-        # input = input_cpu.cuda(gpus[0])
-        # target = target_cpu.cuda(gpus[0])
-        #
-        # def step_model(model, input, target, criterion):
-        #         model.train()
-        #         output = model(input_var)
-        #         loss = criterion(output, target)
-        #         loss.backward()
-        #
-        # for _ in range(2):
-        #     # step single node model
-        #     step_model(model, input, target, criterion)
-        #
-        #     # step ddp model
-        #     step_model(ddp_model,
-        #                input[rank * local_batch_size: (rank + 1) * local_batch_size],
-        #                target[rank * local_batch_size: (rank + 1) * local_batch_size],
-        #                criterion)
-        #
-        #     # Update weights and run a second iteration to shake out errors
-        #     for param in model.parameters():
-        #         param.data += param.grad
-        #         param.grad = None
-        #     for param in ddp_model.parameters():
-        #         param.data += param.grad
-        #         param.grad = None
-        #
-        #     self.assertEqual(len(model.parameters()), len(ddp_model.parameters()))
-        #     for i, j in zip(model.parameters(), ddp_model.parameters()):
-        #         self.assertEqual(i, j)
-        #
-        #     # Shuffle the input so that DDP input is different
-        #     input = input[torch.randperm(batch_size)]
+        def update_parameters(model):
+            for param in model.parameters():
+                param.data += param.grad
+                param.grad = None
 
+        # check two model parameters over 2 iterations
+        for _ in range(2):
+            # single cpu/gpu training
+            step_model(model, input, target, criterion)
+
+            # DDP training, DDP scatters subsets of input_cpu to nodes/GPUs
+            step_model(ddp_model,
+                       input[self.rank * local_batch_size: (self.rank + 1) * local_batch_size],
+                       target[self.rank * local_batch_size: (self.rank + 1) * local_batch_size],
+                       criterion)
+
+            # Update weights and run a second iteration to shake out errors
+            update_parameters(model)
+            update_parameters(ddp_model)
+            assert len(list(model.parameters())) == len(list(ddp_model.parameters()))
+            for i, j in zip(model.parameters(), ddp_model.parameters()):
+                self.assertEqual(i, j)
+
+            # Shuffle the input so that DDP input is different
+            input = input[torch.randperm(global_batch_size)]
 
 if __name__ == '__main__':
+    assert not torch.cuda._initialized, "test_distributed must not have initialized CUDA context on main process"
+
     unittest.main()

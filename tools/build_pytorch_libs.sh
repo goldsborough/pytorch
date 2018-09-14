@@ -8,7 +8,7 @@
 #
 # TODO: Replace this with the root-level CMakeLists.txt
 
-set -ex
+set -e
 
 SYNC_COMMAND="cp"
 if [ -x "$(command -v rsync)" ]; then

@@ -52,9 +52,9 @@ CHECK_CXX_SOURCE_COMPILES(
     }" CAFFE2_LONG_IS_INT32_OR_64)
 
 if (CAFFE2_LONG_IS_INT32_OR_64)
-  message(STATUS "Does not need to define long separately.")
+  # message(STATUS "Does not need to define long separately.")
 else()
-  message(STATUS "Need to define long as a separate typeid.")
+  # message(STATUS "Need to define long as a separate typeid.")
   set(CAFFE2_UNIQUE_LONG_TYPEMETA 1)
 endif()
 cmake_pop_check_state()
@@ -75,10 +75,10 @@ CHECK_CXX_SOURCE_COMPILES(
     }" CAFFE2_EXCEPTION_PTR_SUPPORTED)
 
 if (CAFFE2_EXCEPTION_PTR_SUPPORTED)
-  message(STATUS "std::exception_ptr is supported.")
+  # message(STATUS "std::exception_ptr is supported.")
   set(CAFFE2_USE_EXCEPTION_PTR 1)
 else()
-  message(STATUS "std::exception_ptr is NOT supported.")
+  # message(STATUS "std::exception_ptr is NOT supported.")
 endif()
 cmake_pop_check_state()
 
@@ -93,14 +93,14 @@ if (USE_NUMA)
     int main(int argc, char** argv) {
     }" CAFFE2_IS_NUMA_AVAILABLE)
   if (CAFFE2_IS_NUMA_AVAILABLE)
-    message(STATUS "NUMA is available")
+    # message(STATUS "NUMA is available")
   else()
-    message(STATUS "NUMA is not available")
+    # message(STATUS "NUMA is not available")
     set(CAFFE2_DISABLE_NUMA 1)
   endif()
   cmake_pop_check_state()
 else()
-  message(STATUS "NUMA is disabled")
+  # message(STATUS "NUMA is disabled")
   set(CAFFE2_DISABLE_NUMA 1)
 endif()
 
@@ -119,7 +119,7 @@ CHECK_CXX_SOURCE_COMPILES(
     FAIL_REGEX ".*-Wno-deprecated.*")
 
 if(NOT CAFFE2_NEED_TO_TURN_OFF_DEPRECATION_WARNING AND NOT MSVC)
-  message(STATUS "Turning off deprecation warning due to glog.")
+  # message(STATUS "Turning off deprecation warning due to glog.")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated")
 endif()
 cmake_pop_check_state()
@@ -141,7 +141,7 @@ CHECK_CXX_SOURCE_COMPILES(
        return 0;
      }" CAFFE2_COMPILER_SUPPORTS_AVX2_EXTENSIONS)
 if (CAFFE2_COMPILER_SUPPORTS_AVX2_EXTENSIONS)
-  message(STATUS "Current compiler supports avx2 extention. Will build perfkernels.")
+  # message(STATUS "Current compiler supports avx2 extention. Will build perfkernels.")
   # Currently MSVC seems to have a symbol not found error while linking (related
   # to source file order?). As a result we will currently disable the perfkernel
   # in msvc.

@@ -20,6 +20,18 @@ set(CAFFE2_VERSION
 #    endif()
 set(CAFFE2_CMAKE_BUILDING_WITH_MAIN_REPO ON)
 
+set(CMAKE_INSTALL_MESSAGE NEVER)
+function(message)
+  list(GET ARGV 0 MessageType)
+  if(MessageType STREQUAL FATAL_ERROR OR
+     MessageType STREQUAL SEND_ERROR OR
+     MessageType STREQUAL WARNING OR
+     MessageType STREQUAL AUTHOR_WARNING)
+    list(REMOVE_AT ARGV 0)
+    _message(${MessageType} "${ARGV}")
+  endif()
+endfunction()
+
 if(NOT DEFINED BLAS_SET_BY_USER)
   if(DEFINED BLAS)
     set(BLAS_SET_BY_USER TRUE)
@@ -417,5 +429,5 @@ if (BUILD_BINARY)
   add_subdirectory(binaries)
 endif()
 
-include(cmake/Summary.cmake)
-caffe2_print_configuration_summary()
+# include(cmake/Summary.cmake)
+# caffe2_print_configuration_summary()

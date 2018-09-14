@@ -182,6 +182,7 @@ from tools.setup_helpers.dist_check import USE_DISTRIBUTED, \
 ################################################################################
 
 DEBUG = check_env_flag('DEBUG')
+QUIET = check_env_flag('QUIET')
 IS_WINDOWS = (platform.system() == 'Windows')
 IS_DARWIN = (platform.system() == 'Darwin')
 IS_LINUX = (platform.system() == 'Linux')
@@ -218,6 +219,11 @@ caffe2_build_dir = os.path.join(cwd, "build")
 rel_site_packages = distutils.sysconfig.get_python_lib(prefix='')
 # full absolute path to the dir above
 full_site_packages = distutils.sysconfig.get_python_lib()
+
+
+def log(message):
+    if not QUIET:
+        print(message)
 
 
 class PytorchCommand(setuptools.Command):
@@ -296,13 +302,13 @@ else:
         version += '+' + sha[:7]
     except Exception:
         pass
-print("Building wheel {}-{}".format(package_name, version))
+log("Building wheel {}-{}".format(package_name, version))
 
 
 class create_version_file(PytorchCommand):
     def run(self):
         global version, cwd
-        print('-- Building version ' + version)
+        log('-- Building version ' + version)
         version_path = os.path.join(cwd, 'torch', 'version.py')
         with open(version_path, 'w') as f:
             f.write("__version__ = '{}'\n".format(version))
@@ -405,7 +411,7 @@ def build_libs(libs):
     kwargs = {'cwd': 'build'} if not IS_WINDOWS else {}
 
     if subprocess.call(build_libs_cmd + libs, env=my_env, **kwargs) != 0:
-        print("Failed to run '{}'".format(' '.join(build_libs_cmd + libs)))
+        log("Failed to run '{}'".format(' '.join(build_libs_cmd + libs)))
         sys.exit(1)
 
 
@@ -426,8 +432,8 @@ class build_deps(PytorchCommand):
         # Check if you remembered to check out submodules
         def check_file(f):
             if not os.path.exists(f):
-                print("Could not find {}".format(f))
-                print("Did you run 'git submodule update --init'?")
+                log("Could not find {}".format(f))
+                log("Did you run 'git submodule update --init'?")
                 sys.exit(1)
         check_file(os.path.join(third_party_path, "gloo", "CMakeLists.txt"))
         check_file(os.path.join(third_party_path, "pybind11", "CMakeLists.txt"))
@@ -554,9 +560,9 @@ class develop(setuptools.command.develop.develop):
                 f.write(new_contents)
 
         if not USE_NINJA:
-            print("WARNING: 'develop' is not building C++ code incrementally")
-            print("because ninja is not installed. Run this to enable it:")
-            print(" > pip install ninja")
+            log("WARNING: 'develop' is not building C++ code incrementally")
+            log("because ninja is not installed. Run this to enable it:")
+            log(" > pip install ninja")
 
 
 def monkey_patch_THD_link_flags():
@@ -587,7 +593,7 @@ def monkey_patch_C10D_inc_flags():
             mpi_include_paths = f.readlines()
         mpi_include_paths = [p.strip() for p in mpi_include_paths]
         C.include_dirs += mpi_include_paths
-        print("-- For c10d, will include MPI paths: {}".format(mpi_include_paths))
+        log("-- For c10d, will include MPI paths: {}".format(mpi_include_paths))
 
 
 build_ext_parent = ninja_build_ext if USE_NINJA \
@@ -599,42 +605,42 @@ class build_ext(build_ext_parent):
     def run(self):
         # Print build options
         if USE_NUMPY:
-            print('-- Building with NumPy bindings')
+            log('-- Building with NumPy bindings')
         else:
-            print('-- NumPy not found')
+            log('-- NumPy not found')
         if USE_CUDNN:
-            print('-- Detected cuDNN at ' + CUDNN_LIBRARY + ', ' + CUDNN_INCLUDE_DIR)
+            log('-- Detected cuDNN at ' + CUDNN_LIBRARY + ', ' + CUDNN_INCLUDE_DIR)
         else:
-            print('-- Not using cuDNN')
+            log('-- Not using cuDNN')
         if USE_MIOPEN:
-            print('-- Detected MIOpen at ' + MIOPEN_LIBRARY + ', ' + MIOPEN_INCLUDE_DIR)
+            log('-- Detected MIOpen at ' + MIOPEN_LIBRARY + ', ' + MIOPEN_INCLUDE_DIR)
         else:
-            print('-- Not using MIOpen')
+            log('-- Not using MIOpen')
         if USE_CUDA:
-            print('-- Detected CUDA at ' + CUDA_HOME)
+            log('-- Detected CUDA at ' + CUDA_HOME)
         else:
-            print('-- Not using CUDA')
+            log('-- Not using CUDA')
         if USE_MKLDNN:
-            print('-- Detected MKLDNN at ' + MKLDNN_LIBRARY + ', ' + MKLDNN_INCLUDE_DIR)
+            log('-- Detected MKLDNN at ' + MKLDNN_LIBRARY + ', ' + MKLDNN_INCLUDE_DIR)
         else:
-            print('-- Not using MKLDNN')
+            log('-- Not using MKLDNN')
         if USE_NCCL and USE_SYSTEM_NCCL:
-            print('-- Using system provided NCCL library at ' +
+            log('-- Using system provided NCCL library at ' +
                   NCCL_SYSTEM_LIB + ', ' + NCCL_INCLUDE_DIR)
         elif USE_NCCL:
-            print('-- Building NCCL library')
+            log('-- Building NCCL library')
         else:
-            print('-- Not using NCCL')
+            log('-- Not using NCCL')
         if USE_DISTRIBUTED:
-            print('-- Building with THD distributed package ')
+            log('-- Building with THD distributed package ')
             monkey_patch_THD_link_flags()
             if IS_LINUX:
-                print('-- Building with c10d distributed package ')
+                log('-- Building with c10d distributed package ')
                 monkey_patch_C10D_inc_flags()
             else:
-                print('-- Building without c10d distributed package')
+                log('-- Building without c10d distributed package')
         else:
-            print('-- Building without distributed package')
+            log('-- Building without distributed package')
 
         generate_code(ninja_global)
 
@@ -684,15 +690,15 @@ class build_ext(build_ext_parent):
                 continue
             fullname = self.get_ext_fullname(ext.name)
             filename = self.get_ext_filename(fullname)
-            print("\nCopying extension {}".format(ext.name))
+            log("\nCopying extension {}".format(ext.name))
 
             src = os.path.join(tmp_install_path, rel_site_packages, filename)
             if not os.path.exists(src):
-                print("{} does not exist".format(src))
+                log("{} does not exist".format(src))
                 del self.extensions[i]
             else:
                 dst = os.path.join(os.path.realpath(self.build_lib), filename)
-                print("Copying {} from {} to {}".format(ext.name, src, dst))
+                log("Copying {} from {} to {}".format(ext.name, src, dst))
                 dst_dir = os.path.dirname(dst)
                 if not os.path.exists(dst_dir):
                     os.makedirs(dst_dir)
@@ -703,7 +709,7 @@ class build_ext(build_ext_parent):
     def get_outputs(self):
         outputs = distutils.command.build_ext.build_ext.get_outputs(self)
         outputs.append(os.path.join(self.build_lib, "caffe2"))
-        print("setup.py::get_outputs returning {}".format(outputs))
+        log("setup.py::get_outputs returning {}".format(outputs))
         return outputs
 
 
@@ -737,7 +743,7 @@ class install(setuptools.command.install.install):
 class rebuild_libtorch(distutils.command.build.build):
     def run(self):
         if subprocess.call(['ninja', 'install'], cwd='build') != 0:
-            print("Failed to run `ninja install` for the `rebuild_libtorch` command")
+            log("Failed to run `ninja install` for the `rebuild_libtorch` command")
             sys.exit(1)
 
 
@@ -792,8 +798,8 @@ if IS_WINDOWS:
                           '/wd4275']
     if sys.version_info[0] == 2:
         if not check_env_flag('FORCE_PY27_BUILD'):
-            print('The support for PyTorch with Python 2.7 on Windows is very experimental.')
-            print('Please set the flag `FORCE_PY27_BUILD` to 1 to continue build.')
+            log('The support for PyTorch with Python 2.7 on Windows is very experimental.')
+            log('Please set the flag `FORCE_PY27_BUILD` to 1 to continue build.')
             sys.exit(1)
         # /bigobj increases number of sections in .obj file, which is needed to link
         # against libaries in Python 2.7 under Windows

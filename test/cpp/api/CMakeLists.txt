@@ -2,6 +2,7 @@ set(TORCH_API_TEST_DIR "${TORCH_ROOT}/test/cpp/api")
 set(TORCH_API_TEST_SOURCES
   ${TORCH_API_TEST_DIR}/any.cpp
   ${TORCH_API_TEST_DIR}/cursor.cpp
+  ${TORCH_API_TEST_DIR}/dataloader.cpp
   ${TORCH_API_TEST_DIR}/expanding-array.cpp
   ${TORCH_API_TEST_DIR}/integration.cpp
   ${TORCH_API_TEST_DIR}/jit.cpp

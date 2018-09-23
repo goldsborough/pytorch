@@ -1,7 +1,5 @@
 #pragma once
 
-#include <torch/detail/utils.h>
-
 #include <utility>
 #include <vector>
 
@@ -32,14 +30,14 @@ class Transform : public BatchTransform<IB, OB> {
 
   virtual OutputType apply(InputType input) = 0;
 
-  OutputBatchType apply_batch(InputBatchType input_batch) override {
-    OutputBatchType output_batch;
-    torch::detail::reserve_capacity(output_batch, input_batch.size());
-    for (auto&& input : input_batch) {
-      output_batch.insert(output_batch.end(), apply(std::move(input)));
-    }
-    return output_batch;
-  }
+  // OutputBatchType apply_batch(InputBatchType input_batch) override {
+  //   OutputBatchType output_batch;
+  //   torch::detail::reserve_capacity(output_batch, input_batch.size());
+  //   for (auto&& input : input_batch) {
+  //     output_batch.insert(output_batch.end(), apply(std::move(input)));
+  //   }
+  //   return output_batch;
+  // }
 };
 } // namespace transforms
 } // namespace data

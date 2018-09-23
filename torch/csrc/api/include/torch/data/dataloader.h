@@ -30,7 +30,9 @@ class DataLoader {
       DatasetType dataset,
       DataLoaderOptions options,
       SamplerType sampler)
-      : options_(options.coalesce()), sampler_(std::move(sampler)) {
+      : options_(options.coalesce()),
+        dataset_size_(dataset.size()),
+        sampler_(std::move(sampler)) {
     using namespace detail::sequencers;
 
     // clang-format off
@@ -109,6 +111,14 @@ class DataLoader {
     return batch;
   }
 
+  template <typename LoopFunction>
+  void loop(LoopFunction function) {
+    while (auto maybe_batch = next()) {
+      function(*maybe_batch);
+    }
+    reset();
+  }
+
   void join() {
     if (joined_) {
       return;
@@ -126,8 +136,12 @@ class DataLoader {
     joined_ = true;
   }
 
-  const DataLoaderOptions& options() const {
+  const DataLoaderOptions& options() const noexcept {
     return options_;
+  }
+
+  size_t dataset_size() const noexcept {
+    return dataset_size_;
   }
 
  private:
@@ -183,6 +197,8 @@ class DataLoader {
   const DataLoaderOptions options_;
 
   at::optional<DatasetType> dataset_;
+  size_t dataset_size_;
+
   SamplerType sampler_;
   size_t sequence_number_{0};
   std::vector<std::thread> workers_;

@@ -12,8 +12,11 @@ template <typename D = Tensor, typename L = Tensor>
 struct Example {
   using DataType = D;
   using LabelType = L;
+
+  Example() = default;
   Example(DataType data, LabelType label)
       : data(std::move(data)), label(std::move(label)) {}
+
   DataType data;
   LabelType label;
 };
@@ -23,6 +26,7 @@ struct Example<D, example::NoLabel> {
   using DataType = D;
   using LabelType = example::NoLabel;
 
+  Example() = default;
   /* implicit */ Example(DataType data) : data(std::move(data)) {}
 
   operator DataType&() {

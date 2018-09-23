@@ -1,6 +1,6 @@
 #pragma once
 
-#include <torch/data/datasets/tensor.h>
+#include <torch/data/datasets/base.h>
 #include <torch/data/example.h>
 #include <torch/tensor.h>
 

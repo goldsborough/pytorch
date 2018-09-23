@@ -1,7 +1,7 @@
 #pragma once
 
-#include <torch/csrc/utils/functional.h>
 #include <torch/data/example.h>
+#include <torch/detail/utils.h>
 #include <torch/tensor.h>
 
 #include <ATen/core/ArrayRef.h>
@@ -27,8 +27,7 @@ namespace torch {
 namespace data {
 namespace datasets {
 
-// The most basic dataset type. Maps from a batch of indices to some batch type.
-template <typename S, typename B>
+template <typename S, typename B = std::vector<Example<>>>
 class BatchDataset {
  public:
   using Self = S;
@@ -46,29 +45,23 @@ class BatchDataset {
   }
 };
 
-// A Dataset has also an ElementType and must provide a way of accessing
-// individual elements besides entire batches. The batch type defaults to a
-// vector of the element type. Note that this default case has a specialization
-// below.
-template <typename S, typename E = Tensor, typename B = std::vector<E>>
+template <typename S, typename E = Example<>, typename B = std::vector<E>>
 class Dataset : public BatchDataset<S, B> {
  public:
+  using typename BatchDataset<S, B>::BatchType;
   using ExampleType = E;
-  virtual ExampleType index(size_t index) = 0;
-};
 
-/// If the batch type is the default type (vector), we can provide a default
-/// implementation.
-template <typename S, typename E>
-class Dataset<S, E, std::vector<E>> : public BatchDataset<S, std::vector<E>> {
- public:
-  using ExampleType = E;
   virtual ExampleType index(size_t index) = 0;
-  std::vector<E> batch(ArrayRef<size_t> indices) override {
-    return torch::fmap(indices, [this](size_t i) { return this->index(i); });
+
+  BatchType batch(ArrayRef<size_t> indices) override {
+    BatchType batch;
+    torch::detail::reserve_capacity(batch, indices.size());
+    for (const auto i : indices) {
+      batch.insert(batch.end(), index(i));
+    }
+    return batch;
   }
 };
-
 } // namespace datasets
 } // namespace data
 } // namespace torch

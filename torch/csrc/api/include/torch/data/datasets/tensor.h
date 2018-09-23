@@ -1,6 +1,5 @@
 #pragma once
 
-#include <torch/csrc/utils/functional.h>
 #include <torch/data/datasets/base.h>
 #include <torch/data/example.h>
 #include <torch/tensor.h>
@@ -11,41 +10,21 @@
 namespace torch {
 namespace data {
 namespace datasets {
-
-// Dataset specialization for Example<>; collates a batch of tensors into a
-// single tensor.
-template <typename S>
-class Dataset<S, Example<>, Example<>> : public BatchDataset<S, Tensor> {
+class TensorDataset : public Dataset<TensorDataset, TensorExample> {
  public:
-  using ExampleType = Example<>;
+  explicit TensorDataset(std::vector<Tensor> tensors)
+      : tensors_(std::move(tensors)) {}
 
-  virtual Example<> index(size_t index) = 0;
-
-  Example<> batch(ArrayRef<size_t> indices) override {
-    std::vector<Tensor> data(indices.size());
-    std::vector<Tensor> labels(indices.size());
-    for (const auto i : indices) {
-      auto example = index(i);
-      data[i] = std::move(example.data);
-      labels[i] = std::move(example.label);
-    }
-    return {torch::stack(data), torch::stack(labels)};
+  TensorExample index(size_t index) override {
+    return tensors_[index];
   }
-};
 
-// Dataset specialization for Tensor; collates a batch of tensors into a
-// single tensor.
-template <typename S>
-class Dataset<S, Tensor, Tensor> : public BatchDataset<S, Tensor> {
- public:
-  using ExampleType = Tensor;
-
-  virtual Tensor index(size_t index) = 0;
-
-  Tensor batch(ArrayRef<size_t> indices) override {
-    return torch::stack(
-        torch::fmap(indices, [this](size_t i) { return this->index(i); }));
+  size_t size() const override {
+    return tensors_.size();
   }
+
+ private:
+  std::vector<Tensor> tensors_;
 };
 
 } // namespace datasets

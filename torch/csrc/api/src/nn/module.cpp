@@ -39,6 +39,7 @@ const std::string& Module::name() const noexcept {
   return *name_;
 }
 
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 std::shared_ptr<Module> Module::clone(optional<Device> device) const {
   AT_ERROR(
       "clone() has not been implemented for ",
@@ -180,6 +181,7 @@ Tensor& Module::register_buffer(std::string name, Tensor tensor) {
   return buffers_.insert(std::move(name), std::move(tensor));
 }
 
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 void Module::clone_(Module& other, optional<Device> device) {}
 } // namespace nn
 } // namespace torch

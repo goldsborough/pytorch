@@ -63,7 +63,7 @@ public:
 
   // subtyping relation. By default, we return true for the case
   // when the type is exactly equal
-  virtual bool isSubtypeOf(const TypePtr rhs) const {
+  virtual bool isSubtypeOf(const TypePtr& rhs) const {
     return *this == *rhs;
   }
 
@@ -139,6 +139,7 @@ public:
   }
   // per-type constructor, you only need to override this if the containedTypes()
   // is not empty
+  // NOLINTNEXTLINE(performance-unnecessary-value-param)
   virtual TypePtr createWithContained(std::vector<TypePtr> contained_types) const {
     AT_ERROR("type with contained types did not overload createWithContained: ", str());
   }
@@ -165,7 +166,7 @@ struct OptionalType: public Type {
     return elem->requires_grad();
   }
 
-  bool isSubtypeOf(const TypePtr rhs) const override {
+  bool isSubtypeOf(const TypePtr& rhs) const override {
     if(auto rhs_ = rhs->cast<OptionalType>()) {
       return getElementType()->isSubtypeOf(rhs_->getElementType());
     }
@@ -236,7 +237,7 @@ struct TORCH_API UndefinedTensorType : public Type {
   bool operator==(const Type& rhs) const override {
     return rhs.kind() == kind();
   }
-  bool isSubtypeOf(const TypePtr rhs) const override {
+  bool isSubtypeOf(const TypePtr& rhs) const override {
     return rhs->kind() == TypeKind::DynamicType ||
            rhs->kind() == TypeKind::UndefinedTensorType;
   }
@@ -287,7 +288,7 @@ struct TORCH_API TensorType : public Type {
            device() == rt->device() &&
            dim() == rt->dim();
   }
-  bool isSubtypeOf(const TypePtr rhs) const override {
+  bool isSubtypeOf(const TypePtr& rhs) const override {
     if (rhs->kind() == TypeKind::DynamicType)
       return true;
     return rhs->kind() == TypeKind::TensorType && *this == *rhs;
@@ -369,7 +370,7 @@ struct TORCH_API CompleteTensorType : public TensorType {
            strides() == rt->strides() &&
            device() == rt->device();
   }
-  bool isSubtypeOf(const TypePtr rhs) const override {
+  bool isSubtypeOf(const TypePtr& rhs) const override {
     if (rhs->kind() == TypeKind::DynamicType)
       return true;
     if (rhs->kind() == TypeKind::TensorType)
@@ -388,7 +389,7 @@ struct TORCH_API CompleteTensorType : public TensorType {
     }
     return prod;
   }
-  static TypePtr fromNumberType(TypePtr typ);
+  static TypePtr fromNumberType(const TypePtr& typ);
   static TypePtr fromBoolType();
 
 private:
@@ -547,7 +548,7 @@ struct TORCH_API TupleType : public Type {
       return *a == *b;
     });
   }
-  bool isSubtypeOf(const TypePtr rhs) const override {
+  bool isSubtypeOf(const TypePtr& rhs) const override {
     // co-variant rules for tuples
     return compare(*rhs, [](const TypePtr a, const TypePtr b) {
       return a->isSubtypeOf(b);
@@ -601,7 +602,7 @@ private:
         });
   }
 
-  bool compare(const Type& rhs, std::function<bool(const TypePtr, const TypePtr)> fn) const {
+  bool compare(const Type& rhs, const std::function<bool(const TypePtr, const TypePtr)>& fn) const {
     if(rhs.kind() != kind())
       return false;
     const auto & l_elements = elements();
@@ -652,7 +653,7 @@ struct TORCH_API FloatType : public Type {
   std::string str() const override {
     return "float";
   }
-  bool isSubtypeOf(const TypePtr rhs) const override {
+  bool isSubtypeOf(const TypePtr& rhs) const override {
     if(auto rhs_ = rhs->cast<OptionalType>()) {
       return this->isSubtypeOf(rhs_->getElementType());
     }
@@ -679,7 +680,7 @@ struct TORCH_API IntType : public Type {
   std::string str() const override {
     return "int";
   }
-  bool isSubtypeOf(const TypePtr rhs) const override {
+  bool isSubtypeOf(const TypePtr& rhs) const override {
     if(auto rhs_ = rhs->cast<OptionalType>()) {
       return this->isSubtypeOf(rhs_->getElementType());
     }
@@ -706,7 +707,7 @@ struct TORCH_API BoolType : public Type {
   std::string str() const override {
     return "bool";
   }
-  bool isSubtypeOf(const TypePtr rhs) const override {
+  bool isSubtypeOf(const TypePtr& rhs) const override {
     return *this == *rhs || rhs->kind() == TypeKind::BoolType;
   }
   static const TypeKind Kind = TypeKind::BoolType;
@@ -730,7 +731,7 @@ struct TORCH_API StringType : public Type {
   std::string str() const override {
     return "string";
   }
-  bool isSubtypeOf(const TypePtr rhs) const override {
+  bool isSubtypeOf(const TypePtr& rhs) const override {
     if(auto rhs_ = rhs->cast<OptionalType>()) {
       return this->isSubtypeOf(rhs_->getElementType());
     }
@@ -755,7 +756,7 @@ struct NoneType : public Type {
     return rhs.kind() == kind();
   }
 
-  bool isSubtypeOf(const TypePtr rhs) const override {
+  bool isSubtypeOf(const TypePtr& rhs) const override {
     return rhs->kind() == TypeKind::NoneType ||
            rhs->kind() == TypeKind::OptionalType;
   }
@@ -831,7 +832,7 @@ inline TypePtr unshapedType(const TypePtr& type) {
   return type->withContained(fmap(type->containedTypes(), unshapedType));
 }
 
-inline TypePtr CompleteTensorType::fromNumberType(TypePtr typ) {
+inline TypePtr CompleteTensorType::fromNumberType(const TypePtr& typ) {
   JIT_ASSERT(typ->isSubtypeOf(NumberType::get()));
   if (typ->isSubtypeOf(IntType::get())) {
     return CompleteTensorType::create(at::kLong, -1, {});

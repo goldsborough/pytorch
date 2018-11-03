@@ -11,8 +11,8 @@ struct ErrorReport : public std::exception {
       : ss(e.ss.str()), context(e.context), the_message(e.the_message) {}
 
   ErrorReport() : context(nullptr) {}
-  explicit ErrorReport(const SourceRange& r)
-      : context(std::make_shared<SourceRange>(r)) {}
+  explicit ErrorReport(SourceRange r)
+      : context(std::make_shared<SourceRange>(std::move(r))) {}
   explicit ErrorReport(std::shared_ptr<SourceLocation> loc)
   : context(std::move(loc)) {}
   explicit ErrorReport(const TreeRef& tree) : ErrorReport(tree->range()) {}

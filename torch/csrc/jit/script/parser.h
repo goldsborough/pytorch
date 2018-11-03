@@ -8,7 +8,7 @@ namespace jit {
 namespace script {
 
 
-Decl mergeTypesFromTypeComment(Decl decl, Decl type_annotation_decl, bool is_method) {
+Decl mergeTypesFromTypeComment(const Decl& decl, const Decl& type_annotation_decl, bool is_method) {
   auto expected_num_annotations = decl.params().size();
   if (is_method) {
     // `self` argument
@@ -46,7 +46,7 @@ struct Parser {
     // of the Compound tree are in the same place.
     return Ident::create(t.range, t.text());
   }
-  TreeRef createApply(Expr expr) {
+  TreeRef createApply(const Expr& expr) {
     TreeList attributes;
     auto range = L.cur().range;
     TreeList inputs;
@@ -148,7 +148,7 @@ struct Parser {
     auto cond = parseExp();
     L.expect(TK_ELSE);
     auto false_branch = parseExp(binary_prec);
-    return c(TK_IF_EXPR, range, {cond, true_branch, false_branch});
+    return c(TK_IF_EXPR, range, {cond, std::move(true_branch), false_branch});
   }
   // parse the longest expression whose binary operators have
   // precedence strictly greater than 'precedence'
@@ -312,7 +312,7 @@ struct Parser {
     }
   }
 
-  TreeRef parseSubscript(TreeRef value) {
+  TreeRef parseSubscript(const TreeRef& value) {
     const auto range = L.cur().range;
 
     auto subscript_exprs = parseList('[', ',', ']', &Parser::parseSubscriptExp);
@@ -356,7 +356,7 @@ struct Parser {
   // 'first' has already been parsed since expressions can exist
   // alone on a line:
   // first[,other,lhs] = rhs
-  TreeRef parseAssign(List<Expr> lhs) {
+  TreeRef parseAssign(const List<Expr>& lhs) {
     auto op = parseAssignmentOp();
     auto rhs = parseExpOrExpTuple(TK_NEWLINE);
     L.expect(TK_NEWLINE);

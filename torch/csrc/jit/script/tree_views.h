@@ -321,7 +321,7 @@ struct Decl : public TreeView {
     return Maybe<Expr>(subtree(1));
   }
   static Decl create(const SourceRange& range, const List<Param>& params, Maybe<Expr> return_type) {
-    return Decl(Compound::create(TK_DECL, range, {params, return_type}));
+    return Decl(Compound::create(TK_DECL, range, {params, std::move(return_type)}));
   }
 };
 

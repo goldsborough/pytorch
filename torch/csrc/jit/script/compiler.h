@@ -38,12 +38,12 @@ struct SugaredValue : public std::enable_shared_from_this<SugaredValue> {
   // what can we do with this thing?
   // use it as a value e.g.  `this + 4`
   virtual Value * asValue(SourceRange loc, Method & m) {
-    throw ErrorReport(loc) << kind() << " cannot be used as a value";
+    throw ErrorReport(std::move(loc)) << kind() << " cannot be used as a value";
   }
 
   // select an attribute on it, e.g. `this.field`
   virtual std::shared_ptr<SugaredValue> attr(SourceRange loc, Method & m, const std::string& field) {
-    throw ErrorReport(loc) << "attribute lookup is not defined on " << kind();
+    throw ErrorReport(std::move(loc)) << "attribute lookup is not defined on " << kind();
   }
 
   // use it as a vector of values, e.g. a tuple of values as return value from
@@ -51,8 +51,8 @@ struct SugaredValue : public std::enable_shared_from_this<SugaredValue> {
   virtual std::vector<std::shared_ptr<SugaredValue>> asTuple(
       SourceRange loc,
       Method& m,
-      c10::optional<size_t> size_hint = {}) {
-    throw ErrorReport(loc) << kind() << " cannot be used as a tuple";
+      const c10::optional<size_t> &size_hint = {}) {
+    throw ErrorReport(std::move(loc)) << kind() << " cannot be used as a tuple";
   }
 
   // call it like a function, e.g. `outputs = this(inputs)`
@@ -78,7 +78,7 @@ struct SugaredValue : public std::enable_shared_from_this<SugaredValue> {
 // check that n_binders match the number of things they are returning, the
 // assignment logic will do that anyway.
 
-    throw ErrorReport(loc) << "cannot call a " << kind();
+    throw ErrorReport(std::move(loc)) << "cannot call a " << kind();
   }
 
   virtual ~SugaredValue() = default;
@@ -98,7 +98,7 @@ struct TORCH_API SimpleValue : public SugaredValue {
   std::vector<std::shared_ptr<SugaredValue>> asTuple(
       SourceRange loc,
       Method& m,
-      c10::optional<size_t> size_hint = {}) override;
+      const c10::optional<size_t>& size_hint = {}) override;
   std::shared_ptr<SugaredValue> attr(SourceRange loc, Method & m, const std::string& field) override;
   Value* getValue() const {
     return value;
@@ -109,7 +109,7 @@ private:
 
 struct TORCH_API BuiltinFunction : public SugaredValue {
   BuiltinFunction(Symbol symbol, c10::optional<NamedValue> self)
-      : symbol(std::move(symbol)), self(std::move(self)) {}
+      : symbol(symbol), self(std::move(self)) {}
 
   // The symbol of the function (e.g. `aten::relu`).
   Symbol symbol;
@@ -172,11 +172,11 @@ TORCH_API void defineMethodsInModule(
   Module & m,
   const std::vector<Def>& definitions,
   const std::vector<Resolver>& resolvers, /* determines how we handle free variables in each definition*/
-  std::shared_ptr<SugaredValue> self /* if non-null, the first argument to each def, is bound to this value */
+  const std::shared_ptr<SugaredValue>& self /* if non-null, the first argument to each def, is bound to this value */
 );
 
 // same as above but parse the definitions from source
-TORCH_API void defineMethodsInModule(Module & m, const std::string& source, Resolver resolver, std::shared_ptr<SugaredValue> self);
+TORCH_API void defineMethodsInModule(Module & m, const std::string& source, const Resolver& resolver, const std::shared_ptr<SugaredValue>& self);
 TORCH_API std::shared_ptr<Graph> compileFunction(Def def, Resolver resolver);
 
 // pack outputs of a function following python rules. If there is a single value return

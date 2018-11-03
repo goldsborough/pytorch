@@ -73,7 +73,7 @@ struct SymbolicVariable {
   SymbolicVariable operator*(at::Scalar rhs) const {
     if (isConstInt(rhs, 1))
       return *this;
-    return (*this) * insertConstant(rhs);
+    return (*this) * insertConstant(std::move(rhs));
   }
   SymbolicVariable operator>(at::Scalar rhs) const {
     return create(aten::gt, {*this, insertConstant(rhs)})[0].typeLikeWithScalarType(*this, at::kByte);
@@ -246,7 +246,7 @@ struct SymbolicVariable {
   }
 private:
   Value * insertConstant(IValue value) const {
-    return v->owningGraph()->insertConstant(value);
+    return v->owningGraph()->insertConstant(std::move(value));
   }
   SymbolicVariable typeLike(SymbolicVariable other) const {
     if (auto other_type = other.v->type()->cast<CompleteTensorType>())

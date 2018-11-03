@@ -75,7 +75,9 @@ class OrderedDict {
   // NB: I tried to make this noexcept (conditional on the move constructors of
   // index_ and items_ being noexcept) but the obvious spelling didn't compile
   // on Windows.
+  // NOLINTNEXTLINE(performance-noexcept-move-constructor)
   OrderedDict(OrderedDict&& other) = default;
+  // NOLINTNEXTLINE(performance-noexcept-move-constructor
   OrderedDict& operator=(OrderedDict&& other) = default;
 
   ~OrderedDict() = default;

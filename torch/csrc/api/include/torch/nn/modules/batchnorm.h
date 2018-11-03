@@ -63,7 +63,10 @@ class BatchNormImpl : public torch::nn::Cloneable<BatchNormImpl> {
 
   /// Applies batch normalization on the `input` using the given `mean` and
   /// `variance` statistics.
-  Tensor pure_forward(Tensor input, Tensor mean, Tensor variance);
+  Tensor pure_forward(
+      const Tensor& input,
+      const Tensor& mean,
+      const Tensor& variance);
 
   /// The options with which this module was constructed.
   BatchNormOptions options;

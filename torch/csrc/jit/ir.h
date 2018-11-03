@@ -260,7 +260,7 @@ public:
     return scope_;
   }
   void setScope(ScopePtr scope) {
-    scope_ = scope;
+    scope_ = std::move(scope);
   }
   std::string scopeName() const {
     if (!scope_) {
@@ -661,12 +661,12 @@ struct Block {
   const Node * param_node() const {
     return input_;
   }
-  Value * addInput(std::string name="") {
+  Value * addInput(const std::string& name="") {
     Value * v = input_->addOutput();
     v->setUniqueName(name);
     return v;
   }
-  Value* insertInput(size_t i, std::string name = "") {
+  Value* insertInput(size_t i, const std::string& name = "") {
     Value* v = input_->insertOutput(i);
     v->setUniqueName(name);
     return v;
@@ -804,13 +804,13 @@ public:
     return current_scope_;
   }
   void set_current_scope(ScopePtr scope) {
-    current_scope_ = scope;
+    current_scope_ = std::move(scope);
   }
-  Value * addInput(std::string name="") {
-    return block_->addInput(std::move(name));
+  Value * addInput(const std::string& name="") {
+    return block_->addInput(name);
   }
-  Value* insertInput(size_t i, std::string name = "") {
-    return block_->insertInput(i, std::move(name));
+  Value* insertInput(size_t i, const std::string& name = "") {
+    return block_->insertInput(i, name);
   }
   void eraseInput(size_t i) {
     block_->eraseInput(i);
@@ -950,7 +950,7 @@ struct WithCurrentScope : public ResourceGuard {
     g.set_current_scope(prev_scope);
   })
   , prev_scope(g.current_scope()) {
-    g.set_current_scope(scope);
+    g.set_current_scope(std::move(scope));
   }
 private:
   ScopePtr prev_scope;
@@ -964,9 +964,9 @@ inline Value::Value(Node * node_, size_t offset_)
   node_->graph_->all_values.emplace(this);
 }
 
-inline Value* Value::setType(const TypePtr type) {
+inline Value* Value::setType(TypePtr type) {
   JIT_ASSERT(type);
-  type_ = type;
+  type_ = std::move(type);
   for (Use & use : uses_) {
     use.user->schema_ = nullptr;
   }

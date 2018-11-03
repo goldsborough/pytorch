@@ -55,7 +55,7 @@ std::string join_paths(std::string head, std::string tail) {
   if (head.back() != '/') {
     head.push_back('/');
   }
-  head += std::move(tail);
+  head += tail;
   return head;
 }
 

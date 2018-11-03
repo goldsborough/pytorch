@@ -35,8 +35,8 @@ public:
     name_ = Symbol::scope("");
   }
   Scope(ScopePtr parent, Symbol name) {
+    parent_ = std::move(parent);
     name_ = name;
-    parent_ = parent;
   }
   ScopePtr push(Symbol name);
 

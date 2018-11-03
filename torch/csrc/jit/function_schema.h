@@ -14,13 +14,14 @@ namespace torch { namespace jit {
 struct Argument {
   Argument(
       std::string name = "",
-      TypePtr type = nullptr,
+      const TypePtr& type = nullptr,
       c10::optional<int32_t> N = c10::nullopt,
       c10::optional<IValue> default_value = c10::nullopt,
       bool kwarg_only = false,
       c10::optional<AliasInfo> alias_info = c10::nullopt)
       : name_(std::move(name)),
         type_(type ? type : DynamicType::get()),
+        alias_info_(std::move(alias_info)),
         N_(std::move(N)),
         default_value_(std::move(default_value)),
         kwarg_only_(kwarg_only) {}
@@ -46,7 +47,7 @@ struct Argument {
     return *alias_info_;
   }
 private:
-  static AliasInfo createBlankAliasInfo(TypePtr typ) {
+  static AliasInfo createBlankAliasInfo(const TypePtr& typ) {
     auto contained = fmap(typ->containedTypes(), createBlankAliasInfo);
     return AliasInfo({}, std::move(contained));
   }
@@ -90,7 +91,8 @@ struct FunctionSchema {
             std::move(std::move(arguments)),
             std::move(std::move(returns)),
             is_vararg,
-            is_varret) {}
+            is_varret,
+            torch::fmap(writes, Symbol::fromQualString)) {}
 
 private:
   const std::string name_;

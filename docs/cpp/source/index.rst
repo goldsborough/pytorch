@@ -119,11 +119,11 @@ expanded on a continuous and active basis.
 TorchScript
 -----------
 
-TorchScript a representation of a PyTorch model that can be understood,
-compiled and serialized by the TorchScript compiler. Fundamentally, TorchScript
-is a programming language in its own right. It is a subset of Python using
-the PyTorch API.  The C++ interface to TorchScript encompasses three primary pieces of
-functionality:
+`TorchScript <https://pytorch.org/docs/master/jit.html>`_ a representation of a
+PyTorch model that can be understood, compiled and serialized by the TorchScript
+compiler. Fundamentally, TorchScript is a programming language in its own right.
+It is a subset of Python using the PyTorch API.  The C++ interface to
+TorchScript encompasses three primary pieces of functionality:
 
 - A mechanism for loading and executing serialized TorchScript models defined in Python;
 - An API for defining custom operators that extend the TorchScript standard library of operations;

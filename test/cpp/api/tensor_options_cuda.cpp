@@ -3,7 +3,6 @@
 #include <ATen/Context.h>
 #include <ATen/DeviceGuard.h>
 #include <ATen/Functions.h>
-#include <ATen/OptionsGuard.h>
 #include <c10/core/ScalarType.h>
 #include <ATen/core/TensorOptions.h>
 
@@ -79,6 +78,7 @@ TEST(TensorOptionsTest, ConstructsWellFromCUDATensors_MultiCUDA) {
     REQUIRE_OPTIONS(kCUDA, 1, kFloat, kSparse);
   }
 }
+<<<<<<< HEAD
 
 TEST(OptionsGuardTest, TestFunctionality_MultiCUDA) {
   Tensor tensor;
@@ -125,3 +125,5 @@ TEST(OptionsGuardTest, DeviceGuardOptionsGuardInteraction_MultiCUDA) {
     }
   }
 }
+=======
+>>>>>>> Remove OptionsGuard from ATen (#13738)

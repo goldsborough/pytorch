@@ -39,6 +39,7 @@ namespace torch {
 AT_FORALL_SCALAR_TYPES_EXCEPT_HALF(TENSOR)
 #undef TENSOR
 
+/// Exposes the given `data` as a `Tensor` without taking ownership of the original data.
 inline at::Tensor from_blob(
     void* data,
     at::IntList sizes,
@@ -73,6 +74,7 @@ inline at::Tensor from_blob(
   return autograd::make_variable(tensor, options.requires_grad());
 }
 
+/// Exposes the given `data` as a `Tensor` without taking ownership of the original data.
 inline at::Tensor from_blob(
     void* data,
     at::IntList sizes,
